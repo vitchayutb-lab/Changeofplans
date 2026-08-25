@@ -13,15 +13,56 @@ DEFAULT_SYMBOLS: tuple[str, ...] = ("DOGE", "SHIB", "PEPE", "WIF", "BONK", "FLOK
 
 # ชื่อเต็มของเหรียญ ใช้แสดงผลบน UI
 COIN_NAMES: dict[str, str] = {
+    # --- สายหมา ---
     "DOGE": "Dogecoin",
     "SHIB": "Shiba Inu",
-    "PEPE": "Pepe",
-    "WIF": "dogwifhat",
-    "BONK": "Bonk",
     "FLOKI": "Floki",
-    "MEW": "cat in a dogs world",
+    "BONK": "Bonk",
+    "WIF": "dogwifhat",
+    "MYRO": "Myro",
+    "PONKE": "Ponke",
+    "NEIRO": "Neiro",
+    # --- สายแมว ---
     "POPCAT": "Popcat",
+    "MEW": "cat in a dogs world",
+    "MICHI": "Michi",
+    # --- สายกบ ---
+    "PEPE": "Pepe",
+    "BRETT": "Brett",
+    "TURBO": "Turbo",
+    # --- สัตว์อื่น ---
+    "PNUT": "Peanut the Squirrel",
+    "MOODENG": "Moo Deng",
+    "GOAT": "Goatseus Maximus",
+    # --- สายคลาสสิก / อื่น ๆ ---
+    "MOG": "Mog Coin",
+    "SPX": "SPX6900",
+    "BOME": "Book of Meme",
+    "TOSHI": "Toshi",
+    "DEGEN": "Degen",
+    "SLERF": "Slerf",
+    "WEN": "Wen",
+    "LADYS": "Milady Meme Coin",
+    "BILLY": "Billy",
 }
+
+# หมวดหมู่ของเหรียญ ใช้กรองรายการบนหน้าเว็บเมื่อมีเหรียญให้เลือกเยอะ
+COIN_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "สายหมา 🐕": ("DOGE", "SHIB", "FLOKI", "BONK", "WIF", "MYRO", "PONKE", "NEIRO"),
+    "สายแมว 🐱": ("POPCAT", "MEW", "MICHI"),
+    "สายกบ 🐸": ("PEPE", "BRETT", "TURBO"),
+    "สัตว์อื่น 🐿️": ("PNUT", "MOODENG", "GOAT"),
+    "คลาสสิก / อื่น ๆ ✨": ("MOG", "SPX", "BOME", "TOSHI", "DEGEN", "SLERF", "WEN",
+                            "LADYS", "BILLY"),
+}
+
+
+def category_of(symbol: str) -> str:
+    """หมวดหมู่ของเหรียญ (คืน 'อื่น ๆ' ถ้าไม่ได้จัดหมวดไว้)"""
+    for name, members in COIN_CATEGORIES.items():
+        if symbol in members:
+            return name
+    return "อื่น ๆ"
 
 # จำนวนวันต่อปีที่ใช้ annualize ค่าสถิติ (คริปโตเทรด 365 วัน/ปี)
 PERIODS_PER_YEAR = 365

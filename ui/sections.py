@@ -16,6 +16,7 @@ from core.bot_engine import BotConfig, TradingBot
 from core.indicators import sma
 from core.portfolio import Portfolio, rebalance_plan
 from core.risk import beta_contributions
+from core.valuation import build_all_plans, plans_summary
 from ui import charts
 from ui.theme import (
     CRITICAL,
@@ -634,3 +635,187 @@ def render_backtest_tab(analysis: Analysis) -> None:
          "กลยุทธ์ AI": format_usd(result.fees_paid), "ซื้อแล้วถือ": "$0.00"},
     ])
     st.dataframe(summary, use_container_width=True, hide_index=True)
+
+
+# ==========================================================================
+# แท็บ 6 — ประเมินมูลค่าและแผนถือครอง
+# ==========================================================================
+
+def _apply_plans(portfolio: Portfolio, plans, spot: dict[str, float]) -> tuple[int, float]:
+    """ทำตามแผนทั้งหมด (ขายก่อนเพื่อปลดเงินสดมาใช้ซื้อ) คืน (จำนวนรายการ, มูลค่ารวม)"""
+    executed, turnover = 0, 0.0
+
+    for plan in sorted(plans, key=lambda p: p.delta_value):
+        if plan.action == "ถือ" or abs(plan.delta_value) < 1e-6:
+            continue
+        price = spot[plan.symbol]
+
+        if plan.delta_value < 0:
+            quantity = min(abs(plan.delta_qty), portfolio.position(plan.symbol).quantity)
+            if quantity <= 0:
+                continue
+            portfolio.sell(plan.symbol, quantity, price)
+        else:
+            # ซื้อได้ไม่เกินเงินสดที่มีจริง
+            spend = min(plan.delta_value, portfolio.cash)
+            if spend <= 1e-6:
+                continue
+            portfolio.buy(plan.symbol, spend / price, price)
+            quantity = spend / price
+
+        executed += 1
+        turnover += quantity * price
+
+    return executed, turnover
+
+
+def render_valuation_tab(analysis: Analysis, portfolio: Portfolio) -> None:
+    st.subheader("ประเมินมูลค่า — ถือเท่านี้ ควรซื้อเพิ่มหรือขายออก")
+    st.markdown(
+        '<div class="callout callout-info">ระบบคิดย้อนกลับจาก <b>มูลค่าเหมาะสม</b> '
+        '(เอาราคาที่พยากรณ์ไว้มาคิดลดด้วยผลตอบแทนที่ความเสี่ยงเรียกร้องตาม CAPM) '
+        'แล้วกำหนดขนาดการถือครองด้วย <b>Kelly Criterion</b> แบบเศษส่วน '
+        'ผลลัพธ์คือรายการที่ทำตามได้ทันทีว่าเหรียญไหนควรซื้อเพิ่ม ถือไว้ หรือขายออกเท่าไหร่</div>',
+        unsafe_allow_html=True,
+    )
+
+    col1, col2, col3, col4 = st.columns(4)
+    budget = col1.slider(
+        "สัดส่วนที่ต้องการลงทุนรวม (%)", 0, 100, 70,
+        help="ส่วนที่เหลือถือเป็นเงินสด — Kelly เป็นตัวกำหนดว่าเหรียญไหนควรได้น้ำหนัก"
+             "มากกว่ากัน ส่วนค่านี้กำหนดระดับความเสี่ยงรวมที่คุณรับได้",
+    ) / 100.0
+    max_weight = col2.slider(
+        "น้ำหนักสูงสุดต่อเหรียญ (%)", 5, 50, 25,
+        help="เพดานสัดส่วนของพอร์ตที่ยอมให้เหรียญเดียวถือครองได้",
+    ) / 100.0
+    kelly_used = col3.slider(
+        "สัดส่วน Kelly ที่ใช้ (%)", 5, 100, 25,
+        help="Kelly เต็มสูตรก้าวร้าวเกินไปสำหรับเหรียญมีม — ปกติใช้ราว 25%",
+    ) / 100.0
+    threshold = col4.slider(
+        "ส่วนต่างขั้นต่ำที่จะสั่งปรับ (%)", 1, 15, 2,
+        help="ห่างจากเป้าหมายน้อยกว่านี้จะไม่สั่งซื้อขาย เพื่อไม่ให้เสียค่าธรรมเนียมโดยเปล่าประโยชน์",
+    ) / 100.0
+
+    plans = build_all_plans(analysis, portfolio, max_weight=max_weight,
+                            rebalance_threshold=threshold,
+                            kelly_fraction_used=kelly_used,
+                            invested_budget=budget)
+    summary = plans_summary(plans)
+    spot = analysis.spot_prices()
+    equity = portfolio.equity(spot)
+
+    st.markdown("")
+    render_stat_row([
+        stat_card("มูลค่าพอร์ตรวม", format_usd(equity),
+                  f"เงินสด {format_usd(portfolio.cash)}"),
+        stat_card("ควรซื้อเพิ่ม", f"{summary['buy_count']} เหรียญ",
+                  format_usd(summary["buy_value"]), POS),
+        stat_card("ควรขายออก", f"{summary['sell_count']} เหรียญ",
+                  format_usd(summary["sell_value"]), CRITICAL),
+        stat_card("คงไว้เท่าเดิม", f"{summary['hold_count']} เหรียญ",
+                  "อยู่ในกรอบเป้าหมายแล้ว"),
+        stat_card("ถูกกว่ามูลค่า", f"{summary['undervalued_count']} เหรียญ",
+                  f"น้ำหนักลงทุนเป้าหมาย {summary['target_invested'] * 100:.0f}%",
+                  GOOD if summary["undervalued_count"] else WARNING),
+    ])
+
+    net = summary["net_cash_needed"]
+    if net > portfolio.cash:
+        st.markdown(
+            f'<div class="callout callout-warn">แผนนี้ต้องใช้เงินสดสุทธิ '
+            f'{format_usd(net)} แต่มีอยู่ {format_usd(portfolio.cash)} — '
+            f'ระบบจะซื้อเท่าที่เงินสดมีจริง โดยขายรายการที่ต้องลดก่อนเสมอ</div>',
+            unsafe_allow_html=True,
+        )
+
+    left, right = st.columns(2)
+    with left:
+        st.plotly_chart(charts.valuation_gap_bar(plans), use_container_width=True)
+    with right:
+        st.plotly_chart(charts.plan_delta_bar(plans), use_container_width=True)
+
+    st.markdown("#### รายการที่ควรทำ")
+    rows = [{
+        "เหรียญ": p.symbol,
+        "ควรทำ": f"{p.icon} {p.action}",
+        "โซนราคา": p.zones.current_zone,
+        "ราคาตลาด": p.spot,
+        "มูลค่าเหมาะสม": p.fair.fair_price,
+        "ส่วนต่าง (%)": p.fair.gap * 100,
+        "ถืออยู่ (%)": p.current_weight * 100,
+        "ควรถือ (%)": p.target_weight * 100,
+        "ปรับ (USD)": p.delta_value,
+        "ปรับ (จำนวนเหรียญ)": p.delta_qty,
+    } for p in plans]
+
+    st.dataframe(
+        pd.DataFrame(rows), use_container_width=True, hide_index=True,
+        column_config={
+            "ราคาตลาด": st.column_config.NumberColumn(format="%.8f"),
+            "มูลค่าเหมาะสม": st.column_config.NumberColumn(format="%.8f"),
+            "ส่วนต่าง (%)": st.column_config.NumberColumn(format="%.1f%%"),
+            "ถืออยู่ (%)": st.column_config.NumberColumn(format="%.1f%%"),
+            "ควรถือ (%)": st.column_config.NumberColumn(format="%.1f%%"),
+            "ปรับ (USD)": st.column_config.NumberColumn(format="$%.0f"),
+            "ปรับ (จำนวนเหรียญ)": st.column_config.NumberColumn(format="%.4f"),
+        },
+    )
+
+    act_col, _ = st.columns([2, 3])
+    if act_col.button("✅ ทำตามแผนนี้กับพอร์ตจำลอง", type="primary",
+                      use_container_width=True):
+        executed, turnover = _apply_plans(portfolio, plans, spot)
+        if executed:
+            st.success(f"ปรับพอร์ตแล้ว {executed} รายการ มูลค่ารวม {format_usd(turnover)}")
+            st.rerun()
+        else:
+            st.info("ไม่มีรายการที่ต้องปรับ พอร์ตอยู่ในระดับที่เหมาะสมแล้ว")
+
+    st.markdown("---")
+    st.markdown("#### เจาะรายเหรียญ — บันไดราคา")
+
+    symbol = st.selectbox(
+        "เลือกเหรียญ", [p.symbol for p in plans],
+        format_func=lambda s: f"{s} — {analysis.quotes[s].name}",
+        key="valuation_symbol",
+    )
+    plan = next(p for p in plans if p.symbol == symbol)
+
+    render_stat_row([
+        stat_card("ราคาตลาด", format_price(plan.spot),
+                  f"อยู่ในโซน {plan.zones.current_zone}"),
+        stat_card("มูลค่าเหมาะสม", format_price(plan.fair.fair_price),
+                  plan.fair.verdict,
+                  GOOD if plan.fair.gap > 0 else CRITICAL),
+        stat_card("ส่วนต่างจากมูลค่า", f"{plan.fair.gap * 100:+.1f}%",
+                  "บวก = ถูกกว่าที่ควรเป็น", delta_color(plan.fair.gap)),
+        stat_card("Kelly (ค่าดิบ)", f"{plan.kelly_weight * 100:.1f}%",
+                  f"หลังปรับด้วยคะแนน AI · มูลค่า · งบลงทุนรวม "
+                  f"เหลือ {plan.target_weight * 100:.1f}%"),
+        stat_card("ต้องปรับ", format_usd(plan.delta_value),
+                  f"{plan.icon} {plan.action}", delta_color(plan.delta_value)),
+    ])
+
+    st.plotly_chart(charts.price_zone_ladder(plan.zones), use_container_width=True)
+
+    zone_col, reason_col = st.columns([3, 2])
+    with zone_col:
+        st.dataframe(pd.DataFrame(plan.zones.as_rows()),
+                     use_container_width=True, hide_index=True)
+    with reason_col:
+        reasons = "<br>".join(f"• {line}" for line in plan.rationale)
+        st.markdown(
+            f'<div class="advice-card"><div class="signal">{plan.icon} {plan.action}</div>'
+            f'<div class="reason" style="margin-top:10px">{reasons}</div></div>',
+            unsafe_allow_html=True,
+        )
+
+    st.caption(
+        "มูลค่าเหมาะสมคิดจาก **ค่าคาดหวัง** ของราคาพยากรณ์ คิดลดด้วยผลตอบแทนที่ความเสี่ยง "
+        "เรียกร้องตาม CAPM (ใช้ค่าคาดหวังไม่ใช่ค่ากลาง เพราะค่ากลางของ lognormal มีตัวหน่วง "
+        "−σ²/2 ติดมาอยู่แล้ว ถ้าเอามาคิดลดอีกจะเท่ากับลงโทษความผันผวนซ้ำสองครั้ง) · "
+        "ความกว้างของแต่ละโซนแปรตามความผันผวนของเหรียญนั้น · "
+        "น้ำหนักสุดท้ายคือสัดส่วนเปรียบเทียบจาก Kelly ที่ถูกปรับสเกลให้ผลรวมเท่ากับงบลงทุนที่ตั้งไว้"
+    )

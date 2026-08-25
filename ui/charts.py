@@ -493,3 +493,141 @@ def signal_distribution(analysis, height: int = 220) -> go.Figure:
     fig.update_yaxes(title_text="จำนวนเหรียญ", dtick=1)
     fig.update_xaxes(showgrid=False)
     return fig
+
+
+# ==========================================================================
+# กราฟของระบบประเมินมูลค่า
+# ==========================================================================
+
+# สีของบันไดราคา — เป็นมาตราแบบขั้วคู่ (ฝั่งซื้อ=ฟ้า, กลาง=เทา, ฝั่งขาย=แดง)
+# ไล่เข้มออกจากกึ่งกลางทั้งสองข้าง ตำแหน่งบนแกนจึงเป็นตัวสื่อความหมายหลัก
+# ไม่ใช่สีเพียงอย่างเดียว และทุกแถบมีป้ายชื่อโซนกำกับไว้เสมอ
+ZONE_COLORS: dict[str, str] = {
+    "ซื้อเพิ่มหนัก": "#2a78d6",
+    "ทยอยซื้อ": "#86b6ef",
+    "ถือ": "#6b6f76",
+    "ทยอยขาย": "#e8918c",
+    "ขายออก": "#d03b3b",
+}
+
+
+def price_zone_ladder(zones, height: int = 210) -> go.Figure:
+    """บันไดราคา — ที่ระดับราคาไหนควรซื้อ ถือ หรือขาย
+
+    แถบเรียงตามแกนราคาจากถูกไปแพง พร้อมหมุดบอกราคาปัจจุบันและมูลค่าเหมาะสม
+    """
+    # ขอบซ้าย/ขวาของกราฟ เผื่อให้เห็นโซนปลายทั้งสองข้าง
+    span = max(zones.exit_above - zones.strong_buy_below, zones.fair_price * 0.1)
+    left = max(zones.strong_buy_below - span * 0.35, 0.0)
+    right = zones.exit_above + span * 0.35
+
+    segments = [
+        ("ซื้อเพิ่มหนัก", left, zones.strong_buy_below),
+        ("ทยอยซื้อ", zones.strong_buy_below, zones.accumulate_below),
+        ("ถือ", zones.accumulate_below, zones.trim_above),
+        ("ทยอยขาย", zones.trim_above, zones.exit_above),
+        ("ขายออก", zones.exit_above, right),
+    ]
+
+    fig = go.Figure()
+    for name, start, end in segments:
+        fig.add_trace(go.Bar(
+            y=["ราคา"], x=[end - start], base=[start], orientation="h",
+            name=name, marker={"color": ZONE_COLORS[name],
+                               "line": {"width": 2, "color": SURFACE}},
+            hovertemplate=f"<b>{name}</b><br>{start:.8g} – {end:.8g}<extra></extra>",
+        ))
+
+    # มูลค่าเหมาะสม
+    fig.add_vline(
+        x=zones.fair_price, line_width=2, line_dash="dot", line_color=TEXT_SECONDARY,
+        annotation_text=f"มูลค่าเหมาะสม {zones.fair_price:.8g}",
+        annotation_position="top left",
+        annotation_font_color=TEXT_SECONDARY, annotation_font_size=11,
+    )
+    # ราคาปัจจุบัน
+    fig.add_vline(
+        x=zones.spot, line_width=3, line_color=TEXT_PRIMARY,
+        annotation_text=f"ราคาตอนนี้ {zones.spot:.8g}",
+        annotation_position="bottom right",
+        annotation_font_color=TEXT_PRIMARY, annotation_font_size=12,
+    )
+
+    fig.update_layout(**plotly_layout(
+        height=height, show_legend=True, barmode="stack",
+        title=f"บันไดราคา {zones.symbol} — ตอนนี้อยู่โซน “{zones.current_zone}”",
+        margin={"l": 24, "r": 24, "t": 62, "b": 44},
+    ))
+    fig.update_xaxes(title_text="ราคา (USD)", range=[left, right])
+    fig.update_yaxes(showgrid=False, showticklabels=False)
+    return fig
+
+
+def valuation_gap_bar(plans, height: int = 340) -> go.Figure:
+    """ส่วนต่างระหว่างราคาตลาดกับมูลค่าเหมาะสมของทุกเหรียญ
+
+    แท่งขวา (ฟ้า) = ถูกกว่ามูลค่า · แท่งซ้าย (แดง) = แพงกว่ามูลค่า
+    """
+    ordered = sorted(plans, key=lambda p: p.fair.gap)
+    labels = [p.symbol for p in ordered]
+    values = [p.fair.gap * 100 for p in ordered]
+    detail = [f"ราคาตลาด {p.spot:.8g} · มูลค่าเหมาะสม {p.fair.fair_price:.8g}"
+              for p in ordered]
+
+    fig = go.Figure(go.Bar(
+        x=values, y=labels, orientation="h",
+        marker={"color": [POS if v >= 0 else NEG for v in values],
+                "line": {"width": 2, "color": SURFACE}},
+        customdata=detail,
+        text=[f"{v:+.0f}%" for v in values], textposition="outside",
+        textfont={"color": TEXT_SECONDARY, "size": 11},
+        hovertemplate="<b>%{y}</b><br>ส่วนต่างจากมูลค่า %{x:+.1f}%<br>"
+                      "%{customdata}<extra></extra>",
+        showlegend=False,
+    ))
+
+    fig.add_vline(x=0, line_width=1, line_color=AXIS)
+    span = max(abs(min(values, default=0)), abs(max(values, default=0)), 5) * 1.35
+    fig.update_layout(**plotly_layout(
+        height=height,
+        title="ราคาตลาดถูกหรือแพงกว่ามูลค่าเหมาะสมกี่ %",
+    ))
+    fig.update_xaxes(title_text="ถูกกว่ามูลค่า (+) / แพงกว่ามูลค่า (−)  %",
+                     range=[-span, span])
+    fig.update_yaxes(showgrid=False)
+    return fig
+
+
+def plan_delta_bar(plans, height: int = 340) -> go.Figure:
+    """ต้องซื้อเพิ่มหรือขายออกกี่ดอลลาร์ต่อเหรียญ"""
+    actionable = [p for p in plans if p.action != "ถือ"]
+    if not actionable:
+        return go.Figure(layout=plotly_layout(height=height,
+                                              title="พอร์ตอยู่ในระดับที่เหมาะสมแล้ว"))
+
+    ordered = sorted(actionable, key=lambda p: p.delta_value)
+    labels = [p.symbol for p in ordered]
+    values = [p.delta_value for p in ordered]
+    detail = [f"{p.action} · จาก {p.current_weight * 100:.1f}% "
+              f"ไปที่ {p.target_weight * 100:.1f}%" for p in ordered]
+
+    fig = go.Figure(go.Bar(
+        x=values, y=labels, orientation="h",
+        marker={"color": [POS if v >= 0 else NEG for v in values],
+                "line": {"width": 2, "color": SURFACE}},
+        customdata=detail,
+        text=[f"{v:+,.0f}" for v in values], textposition="outside",
+        textfont={"color": TEXT_SECONDARY, "size": 11},
+        hovertemplate="<b>%{y}</b><br>%{customdata}<br>"
+                      "ปรับ %{x:+,.0f} USD<extra></extra>",
+        showlegend=False,
+    ))
+
+    fig.add_vline(x=0, line_width=1, line_color=AXIS)
+    span = max(abs(min(values)), abs(max(values)), 1) * 1.4
+    fig.update_layout(**plotly_layout(
+        height=height, title="ต้องซื้อเพิ่ม (+) หรือขายออก (−) เท่าไหร่",
+    ))
+    fig.update_xaxes(title_text="มูลค่าที่ต้องปรับ (USD)", range=[-span, span])
+    fig.update_yaxes(showgrid=False)
+    return fig

@@ -24,12 +24,14 @@ class TestAppRuns:
     def test_app_runs_without_exceptions(self, app):
         assert not app.exception, [str(e) for e in app.exception]
 
-    def test_renders_all_five_tabs(self, app):
-        assert len(app.tabs) == 5
+    def test_renders_all_six_tabs(self, app):
+        assert len(app.tabs) == 6
 
     def test_sidebar_controls_exist(self, app):
         assert len(app.sidebar.slider) >= 4
-        assert len(app.sidebar.multiselect) == 1
+        # ตัวแรกคือตัวกรองหมวด ตัวที่สองคือรายการเหรียญที่ติดตาม
+        assert len(app.sidebar.multiselect) == 2
+        assert app.sidebar.multiselect[0].label == "กรองตามหมวด"
 
     def test_shows_the_disclaimer(self, app):
         body = " ".join(m.value for m in app.markdown)
@@ -101,3 +103,65 @@ class TestInteractions:
         app.sidebar.multiselect[0].set_value(["DOGE"]).run()
 
         assert not app.exception, [str(e) for e in app.exception]
+
+
+class TestValuationTab:
+    def test_valuation_controls_render(self):
+        app = AppTest.from_file(APP_PATH, default_timeout=TIMEOUT)
+        app.run()
+
+        assert not app.exception, [str(e) for e in app.exception]
+        labels = [s.label for s in app.slider]
+        assert any("Kelly" in label for label in labels)
+        assert any("น้ำหนักสูงสุดต่อเหรียญ" in label for label in labels)
+
+    def test_applying_the_plan_changes_the_portfolio(self):
+        """กดทำตามแผนแล้วพอร์ตต้องขยับจริง ไม่ใช่แค่แสดงตาราง"""
+        app = AppTest.from_file(APP_PATH, default_timeout=TIMEOUT)
+        app.run()
+
+        before_cash = app.session_state["portfolio"].cash
+        next(b for b in app.button if "ทำตามแผนนี้" in b.label).click().run()
+
+        assert not app.exception, [str(e) for e in app.exception]
+        portfolio = app.session_state["portfolio"]
+        # ถ้าแผนสั่งซื้อ เงินสดต้องลด และต้องมีสถานะเปิดขึ้นมา
+        if portfolio.open_positions():
+            assert portfolio.cash < before_cash
+
+    def test_applying_twice_settles_into_hold(self):
+        """ทำตามแผนซ้ำครั้งที่สองต้องไม่สั่งซื้อขายวนไม่รู้จบ"""
+        app = AppTest.from_file(APP_PATH, default_timeout=TIMEOUT)
+        app.run()
+
+        next(b for b in app.button if "ทำตามแผนนี้" in b.label).click().run()
+        cash_after_first = app.session_state["portfolio"].cash
+
+        next(b for b in app.button if "ทำตามแผนนี้" in b.label).click().run()
+        assert not app.exception, [str(e) for e in app.exception]
+
+        # รอบสองไม่ควรใช้เงินเพิ่มมากไปกว่าเศษเล็กน้อย
+        drift = abs(app.session_state["portfolio"].cash - cash_after_first)
+        assert drift < cash_after_first * 0.25 + 1.0
+
+
+class TestLargerUniverse:
+    def test_many_coins_can_be_selected(self):
+        """เลือกเหรียญเยอะ ๆ พร้อมกันแล้วทุกแท็บต้องยังเรนเดอร์ได้"""
+        app = AppTest.from_file(APP_PATH, default_timeout=TIMEOUT)
+        app.run()
+
+        universe = app.sidebar.multiselect[1]
+        app.sidebar.multiselect[1].set_value(list(universe.options)[:12]).run()
+
+        assert not app.exception, [str(e) for e in app.exception]
+
+    def test_category_filter_narrows_the_list(self):
+        app = AppTest.from_file(APP_PATH, default_timeout=TIMEOUT)
+        app.run()
+
+        full = len(app.sidebar.multiselect[1].options)
+        app.sidebar.multiselect[0].set_value(["สายแมว 🐱"]).run()
+
+        assert not app.exception, [str(e) for e in app.exception]
+        assert len(app.sidebar.multiselect[1].options) < full

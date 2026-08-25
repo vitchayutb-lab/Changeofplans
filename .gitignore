@@ -1,8 +1,13 @@
 __pycache__/
 *.py[cod]
-.env
 venv/
 .venv/
 .pytest_cache/
-.streamlit/secrets.toml
 .DS_Store
+
+# ห้าม commit ไฟล์ที่มีค่า secret เด็ดขาด — เก็บได้เฉพาะ .env.example ที่ค่าว่าง
+.env
+.env.*
+*.env
+!.env.example
+.streamlit/secrets.toml
