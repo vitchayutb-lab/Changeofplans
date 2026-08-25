@@ -8,7 +8,7 @@ from __future__ import annotations
 import streamlit as st
 
 from core.analytics import build_analysis
-from core.config import COIN_NAMES, DEFAULT_SYMBOLS, Settings, load_settings
+from core.config import COIN_CATEGORIES, COIN_NAMES, DEFAULT_SYMBOLS, Settings, load_settings
 from core.portfolio import Portfolio
 from ui import sections
 from ui.theme import CUSTOM_CSS
@@ -39,15 +39,31 @@ def render_sidebar(base: Settings) -> tuple[Settings, float]:
     with st.sidebar:
         st.markdown("### ⚙️ ตั้งค่าระบบ")
 
+        categories = st.multiselect(
+            "กรองตามหมวด",
+            options=list(COIN_CATEGORIES.keys()),
+            default=[],
+            help="เว้นว่างไว้ = แสดงทุกเหรียญให้เลือก",
+        )
+        available = (
+            [s for c in categories for s in COIN_CATEGORIES[c]]
+            if categories else list(COIN_NAMES.keys())
+        )
+
+        # เก็บเฉพาะเหรียญที่ยังอยู่ในรายการหลังกรอง ไม่งั้น multiselect จะ error
+        previous = [s for s in (base.symbols or DEFAULT_SYMBOLS) if s in available]
         symbols = st.multiselect(
-            "เหรียญมีมที่ติดตาม",
-            options=list(COIN_NAMES.keys()),
-            default=list(base.symbols) or list(DEFAULT_SYMBOLS),
+            f"เหรียญมีมที่ติดตาม (มีให้เลือก {len(available)} เหรียญ)",
+            options=available,
+            default=previous or available[:6],
             format_func=lambda s: f"{s} — {COIN_NAMES.get(s, s)}",
         )
         if not symbols:
-            symbols = list(DEFAULT_SYMBOLS)
+            symbols = [s for s in DEFAULT_SYMBOLS if s in available] or available[:6]
             st.warning("ต้องเลือกอย่างน้อย 1 เหรียญ — ใช้ค่าเริ่มต้นแทน")
+
+        if len(symbols) > 12:
+            st.caption(f"เลือก {len(symbols)} เหรียญ — ยิ่งเยอะยิ่งใช้เวลาประมวลผลนานขึ้น")
 
         st.markdown("---")
         st.markdown("#### สมมติฐานทางการเงิน")
@@ -138,9 +154,11 @@ def main() -> None:
     analysis = load_analysis(settings)
     render_header(analysis)
 
-    tab_market, tab_ai, tab_portfolio, tab_bot, tab_backtest = st.tabs([
+    (tab_market, tab_ai, tab_valuation, tab_portfolio,
+     tab_bot, tab_backtest) = st.tabs([
         "📊 ภาพรวมตลาด",
         "🧠 วิเคราะห์ด้วย AI",
+        "💎 มูลค่า & แผนถือครอง",
         "💼 พอร์ต & ค่า β",
         "⚡ บอทยิงออเดอร์",
         "🔬 ทดสอบย้อนหลัง",
@@ -150,6 +168,8 @@ def main() -> None:
         sections.render_market_tab(analysis)
     with tab_ai:
         sections.render_analysis_tab(analysis)
+    with tab_valuation:
+        sections.render_valuation_tab(analysis, st.session_state.portfolio)
     with tab_portfolio:
         sections.render_portfolio_tab(analysis, st.session_state.portfolio, target_beta)
     with tab_bot:
