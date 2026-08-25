@@ -71,12 +71,13 @@ def plotly_layout(height: int = 340, show_legend: bool = False, **overrides) -> 
         "paper_bgcolor": SURFACE,
         "plot_bgcolor": SURFACE,
         "font": {"family": FONT_FAMILY, "color": TEXT_SECONDARY, "size": 12},
-        "margin": {"l": 56, "r": 24, "t": 44, "b": 44},
+        # legend ลอยอยู่เหนือพื้นที่วาด จึงต้องเผื่อขอบบนเพิ่ม ไม่งั้นจะทับหัวข้อ
+        "margin": {"l": 56, "r": 24, "t": 74 if show_legend else 44, "b": 44},
         "showlegend": show_legend,
         "legend": {
             "orientation": "h",
             "yanchor": "bottom",
-            "y": 1.02,
+            "y": 1.06,
             "xanchor": "left",
             "x": 0,
             "font": {"color": TEXT_SECONDARY, "size": 11},
