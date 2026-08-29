@@ -24,8 +24,8 @@ class TestAppRuns:
     def test_app_runs_without_exceptions(self, app):
         assert not app.exception, [str(e) for e in app.exception]
 
-    def test_renders_all_six_tabs(self, app):
-        assert len(app.tabs) == 6
+    def test_renders_all_seven_tabs(self, app):
+        assert len(app.tabs) == 7
 
     def test_sidebar_controls_exist(self, app):
         assert len(app.sidebar.slider) >= 4
@@ -165,3 +165,57 @@ class TestLargerUniverse:
 
         assert not app.exception, [str(e) for e in app.exception]
         assert len(app.sidebar.multiselect[1].options) < full
+
+
+class TestChatTab:
+    def test_chat_input_and_suggestions_render(self):
+        app = AppTest.from_file(APP_PATH, default_timeout=TIMEOUT)
+        app.run()
+
+        assert not app.exception, [str(e) for e in app.exception]
+        labels = [b.label for b in app.button]
+        assert any("กระแสแรงสุด" in label for label in labels)
+
+    def test_asking_a_question_produces_an_answer(self):
+        app = AppTest.from_file(APP_PATH, default_timeout=TIMEOUT)
+        app.run()
+
+        next(b for b in app.button if "กระแสแรงสุด" in b.label).click().run()
+
+        assert not app.exception, [str(e) for e in app.exception]
+        messages = app.session_state["chat_messages"]
+        assert len(messages) == 2
+        assert messages[0]["role"] == "user"
+        assert messages[1]["role"] == "assistant"
+        assert messages[1]["content"].strip()
+
+    def test_answer_is_grounded_in_real_symbols(self):
+        """คำตอบต้องอ้างถึงเหรียญที่ระบบติดตามจริง ไม่ใช่เหรียญที่แต่งขึ้น"""
+        app = AppTest.from_file(APP_PATH, default_timeout=TIMEOUT)
+        app.run()
+
+        next(b for b in app.button if "กระแสแรงสุด" in b.label).click().run()
+        reply = app.session_state["chat_messages"][1]["content"]
+
+        tracked = list(app.sidebar.multiselect[1].value)
+        assert any(symbol in reply for symbol in tracked)
+
+    def test_clearing_the_conversation(self):
+        app = AppTest.from_file(APP_PATH, default_timeout=TIMEOUT)
+        app.run()
+
+        next(b for b in app.button if "กระแสแรงสุด" in b.label).click().run()
+        next(b for b in app.button if "ล้างบทสนทนา" in b.label).click().run()
+
+        assert not app.exception, [str(e) for e in app.exception]
+        assert app.session_state["chat_messages"] == []
+
+    def test_social_toggle_does_not_break_the_page(self):
+        """เปิดสวิตช์ดึงข้อมูลจริง แล้วแหล่งล่ม ต้องยังเรนเดอร์ได้"""
+        app = AppTest.from_file(APP_PATH, default_timeout=TIMEOUT)
+        app.run()
+
+        toggle = next(c for c in app.sidebar.checkbox if "Reddit" in c.label)
+        toggle.set_value(True).run()
+
+        assert not app.exception, [str(e) for e in app.exception]

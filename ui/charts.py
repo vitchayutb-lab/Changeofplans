@@ -16,6 +16,7 @@ import plotly.graph_objects as go
 from ui.theme import (
     AXIS,
     BLUE_RAMP,
+    GOOD as GOOD_COLOR,
     DIVERGING_SCALE,
     NEG,
     NEUTRAL,
@@ -630,4 +631,106 @@ def plan_delta_bar(plans, height: int = 340) -> go.Figure:
     ))
     fig.update_xaxes(title_text="มูลค่าที่ต้องปรับ (USD)", range=[-span, span])
     fig.update_yaxes(showgrid=False)
+    return fig
+
+
+# ==========================================================================
+# กราฟกระแสโซเชียล
+# ==========================================================================
+
+def buzz_ranking(pulse, height: int = 340) -> go.Figure:
+    """อันดับคะแนนกระแสของแต่ละเหรียญ
+
+    คะแนนกระแสเป็นค่าเชิงปริมาณ จึงใช้ไล่เฉดสีเดียว (เข้ม = กระแสแรง)
+    """
+    ranked = sorted(pulse.ranked(), key=lambda s: s.buzz_score)
+    labels = [s.symbol for s in ranked]
+    values = [s.buzz_score for s in ranked]
+    detail = [f"{s.trend} · พูดถึง {s.mentions_24h} ครั้ง "
+              f"({s.mention_change * 100:+.0f}%) · {s.mood}" for s in ranked]
+
+    # ไล่เฉดฟ้าตามคะแนน — ยิ่งคะแนนสูงยิ่งเข้ม
+    def shade(score: float) -> str:
+        idx = int(np.clip(score / 100.0 * (len(BLUE_RAMP) - 2), 0, len(BLUE_RAMP) - 2))
+        return BLUE_RAMP[len(BLUE_RAMP) - 2 - idx]
+
+    fig = go.Figure(go.Bar(
+        x=values, y=labels, orientation="h",
+        marker={"color": [shade(v) for v in values],
+                "line": {"width": 2, "color": SURFACE}},
+        customdata=detail,
+        text=[f"{v:.0f}" for v in values], textposition="outside",
+        textfont={"color": TEXT_SECONDARY, "size": 11},
+        hovertemplate="<b>%{y}</b><br>คะแนนกระแส %{x:.0f}/100<br>"
+                      "%{customdata}<extra></extra>",
+        showlegend=False,
+    ))
+
+    fig.update_layout(**plotly_layout(
+        height=height, title="อันดับกระแสโซเชียล (0-100)",
+    ))
+    fig.update_xaxes(title_text="คะแนนกระแส", range=[0, 112])
+    fig.update_yaxes(showgrid=False)
+    return fig
+
+
+def buzz_vs_score(analysis, pulse, height: int = 340) -> go.Figure:
+    """กระแสโซเชียล เทียบ คะแนนพื้นฐานจาก AI
+
+    เป็นกราฟที่ชี้ "กับดักกระแส" ได้ตรงที่สุด — เหรียญที่คนพูดถึงเยอะ
+    แต่คะแนนเชิงปริมาณติดลบ คือกลุ่มที่เสี่ยงต่อการไล่ราคาตามกระแส
+    """
+    symbols = [s for s in analysis.symbols if s in pulse.signals]
+    x = [pulse.signals[s].buzz_score for s in symbols]
+    y = [analysis.advices[s].score for s in symbols]
+    hover = [
+        f"<b>{s}</b><br>กระแส {pulse.signals[s].buzz_score:.0f}/100 "
+        f"({pulse.signals[s].trend})<br>คะแนน AI {analysis.advices[s].score:+.2f} "
+        f"({analysis.advices[s].signal})"
+        for s in symbols
+    ]
+
+    # ติดป้ายเฉพาะจุดที่สื่อสาระของกราฟ — เหรียญมีมเกาะกลุ่มกันแน่นเกินกว่าจะติดป้าย
+    # ครบทุกจุดโดยไม่ทับกัน ที่เหลือดูชื่อได้จาก tooltip
+    top_buzz = max(symbols, key=lambda s: pulse.signals[s].buzz_score) if symbols else None
+    labels = [
+        s if (analysis.advices[s].score < 0 or s == top_buzz) else ""
+        for s in symbols
+    ]
+
+    fig = go.Figure(go.Scatter(
+        x=x, y=y, mode="markers+text",
+        marker={"color": SERIES[0], "size": 15,
+                "line": {"width": 2, "color": SURFACE}},
+        text=labels,
+        textposition="middle right",
+        textfont={"color": TEXT_SECONDARY, "size": 11},
+        customdata=hover,
+        hovertemplate="%{customdata}<extra></extra>",
+        showlegend=False,
+    ))
+
+    fig.add_hline(y=0, line_width=1, line_dash="dot", line_color=AXIS)
+    fig.add_vline(x=50, line_width=1, line_dash="dot", line_color=AXIS)
+
+    # ป้ายมุมบอกความหมายของควอดรันต์ — วางชิดมุมกระดาษ ไม่ใช่พิกัดข้อมูล
+    # เพื่อไม่ให้ทับหมุดหรือป้ายชื่อเหรียญ
+    fig.add_annotation(xref="paper", yref="paper", x=0.99, y=1.0, showarrow=False,
+                       text="กระแสแรง + พื้นฐานดี", xanchor="right", yanchor="top",
+                       font={"color": GOOD_COLOR, "size": 10.5})
+    fig.add_annotation(xref="paper", yref="paper", x=0.99, y=0.0, showarrow=False,
+                       text="⚠️ กระแสแรงแต่พื้นฐานลบ — กับดักกระแส",
+                       xanchor="right", yanchor="bottom",
+                       font={"color": NEG, "size": 10.5})
+
+    fig.update_layout(**plotly_layout(
+        height=height, title="กระแสโซเชียล เทียบ คะแนนพื้นฐาน",
+    ))
+    fig.update_xaxes(title_text="คะแนนกระแสโซเชียล", range=[0, 105])
+
+    # เผื่อระยะบน-ล่างให้ป้ายชื่อเหรียญและป้ายควอดรันต์ไม่ชนกัน
+    span = max(max(y, default=0) - min(y, default=0), 0.2)
+    fig.update_yaxes(title_text="คะแนน AI (พื้นฐาน)",
+                     range=[min(y, default=0) - span * 0.45,
+                            max(y, default=0) + span * 0.45])
     return fig

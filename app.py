@@ -10,6 +10,7 @@ import streamlit as st
 from core.analytics import build_analysis
 from core.config import COIN_CATEGORIES, COIN_NAMES, DEFAULT_SYMBOLS, Settings, load_settings
 from core.portfolio import Portfolio
+from core.social import build_social_pulse
 from ui import sections
 from ui.theme import CUSTOM_CSS
 
@@ -25,6 +26,12 @@ st.set_page_config(
 def load_analysis(settings: Settings):
     """วิเคราะห์ทั้งระบบ แล้วแคชไว้ 5 นาทีเพื่อไม่ให้เรียก API ซ้ำทุกครั้งที่กดปุ่ม"""
     return build_analysis(settings)
+
+
+@st.cache_data(ttl=600, show_spinner="กำลังรวบรวมกระแสโซเชียล...")
+def load_social_pulse(settings: Settings, use_live: bool):
+    """แคชกระแสโซเชียลไว้ 10 นาที — Reddit จำกัดอัตราการเรียกค่อนข้างเข้ม"""
+    return build_social_pulse(settings, use_live=use_live)
 
 
 def init_session_state() -> None:
@@ -95,6 +102,15 @@ def render_sidebar(base: Settings) -> tuple[Settings, float]:
         )
 
         st.markdown("---")
+        st.markdown("#### กระแสโซเชียล")
+        st.checkbox(
+            "ลองดึงกระแสจริงจาก Reddit + CoinGecko",
+            key="social_live",
+            help="ไม่ต้องใช้ API key แต่ต้องต่อเน็ตได้ ถ้าดึงไม่สำเร็จระบบจะใช้ข้อมูลจำลอง"
+                 "และบอกเหตุผลให้ทราบ",
+        )
+
+        st.markdown("---")
         if st.button("🔄 ดึงข้อมูลใหม่", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
@@ -152,16 +168,18 @@ def main() -> None:
     settings, target_beta = render_sidebar(base_settings)
 
     analysis = load_analysis(settings)
+    pulse = load_social_pulse(settings, st.session_state.get("social_live", False))
     render_header(analysis)
 
     (tab_market, tab_ai, tab_valuation, tab_portfolio,
-     tab_bot, tab_backtest) = st.tabs([
+     tab_bot, tab_backtest, tab_chat) = st.tabs([
         "📊 ภาพรวมตลาด",
         "🧠 วิเคราะห์ด้วย AI",
         "💎 มูลค่า & แผนถือครอง",
         "💼 พอร์ต & ค่า β",
         "⚡ บอทยิงออเดอร์",
         "🔬 ทดสอบย้อนหลัง",
+        "💬 แชตบอทกระแสมีม",
     ])
 
     with tab_market:
@@ -176,6 +194,8 @@ def main() -> None:
         sections.render_bot_tab(analysis, st.session_state.portfolio)
     with tab_backtest:
         sections.render_backtest_tab(analysis)
+    with tab_chat:
+        sections.render_chat_tab(analysis, st.session_state.portfolio, pulse)
 
     st.markdown(f'<div class="disclaimer">{sections.DISCLAIMER}</div>', unsafe_allow_html=True)
 

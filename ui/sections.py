@@ -13,6 +13,7 @@ from core.ai_advisor import evaluate_portfolio
 from core.analytics import Analysis, market_regime, portfolio_risk_summary
 from core.backtest import annualized_stats, drawdown_curves, portfolio_backtest, run_backtest
 from core.bot_engine import BotConfig, TradingBot
+from core.chatbot import ChatContext, answer, has_llm_credentials
 from core.indicators import sma
 from core.portfolio import Portfolio, rebalance_plan
 from core.risk import beta_contributions
@@ -22,6 +23,7 @@ from ui.theme import (
     CRITICAL,
     GOOD,
     POS,
+    TEXT_MUTED,
     TEXT_PRIMARY,
     WARNING,
     delta_color,
@@ -818,4 +820,164 @@ def render_valuation_tab(analysis: Analysis, portfolio: Portfolio) -> None:
         "−σ²/2 ติดมาอยู่แล้ว ถ้าเอามาคิดลดอีกจะเท่ากับลงโทษความผันผวนซ้ำสองครั้ง) · "
         "ความกว้างของแต่ละโซนแปรตามความผันผวนของเหรียญนั้น · "
         "น้ำหนักสุดท้ายคือสัดส่วนเปรียบเทียบจาก Kelly ที่ถูกปรับสเกลให้ผลรวมเท่ากับงบลงทุนที่ตั้งไว้"
+    )
+
+
+# ==========================================================================
+# แท็บ 7 — แชตบอทกระแสมีม
+# ==========================================================================
+
+SUGGESTED_QUESTIONS = [
+    "ตอนนี้เหรียญไหนกระแสแรงสุด",
+    "พอร์ตฉันเสี่ยงเกินไปหรือเปล่า",
+    "เหรียญไหนถูกกว่ามูลค่าบ้าง",
+    "เทียบทุกเหรียญให้หน่อย",
+]
+
+
+def _buzz_badge(signal) -> str:
+    """ป้ายบอกระดับกระแส — ใช้ทั้งสีและข้อความ ไม่พึ่งสีอย่างเดียว"""
+    if signal.buzz_score >= 60:
+        color, label = GOOD, "🔥 กระแสแรง"
+    elif signal.buzz_score >= 35:
+        color, label = WARNING, "◐ กระแสปานกลาง"
+    else:
+        color, label = TEXT_MUTED, "○ กระแสเงียบ"
+    return (f'<span style="color:{color};font-weight:600;font-size:0.82rem">'
+            f'{label} {signal.buzz_score:.0f}/100</span>')
+
+
+
+def render_chat_tab(analysis: Analysis, portfolio: Portfolio, pulse) -> None:
+    """pulse ถูกคำนวณและแคชไว้ใน app.py แล้วส่งเข้ามา — ส่วนนี้ทำหน้าที่แสดงผลอย่างเดียว"""
+    st.subheader("แชตบอทกระแสมีม — ถามอะไรก็ได้เกี่ยวกับเหรียญและพอร์ต")
+
+    # --- แถบสถานะแหล่งข้อมูล ---
+    source_label = {
+        "live": ('<span class="badge badge-live">● กระแสจาก Reddit + CoinGecko จริง</span>'),
+        "mixed": ('<span class="badge badge-sim">● กระแสจริงบางส่วน ที่เหลือจำลอง</span>'),
+        "simulated": ('<span class="badge badge-sim">● กระแสโซเชียลเป็นข้อมูลจำลอง</span>'),
+    }[pulse.source]
+
+    engine_badge = (
+        '<span class="badge badge-live">● ใช้ Claude เรียบเรียงคำตอบ</span>'
+        if has_llm_credentials() else
+        '<span class="badge badge-sim">● ตอบจากกฎในระบบ (ไม่ได้ตั้ง ANTHROPIC_API_KEY)</span>'
+    )
+    st.markdown(source_label + engine_badge, unsafe_allow_html=True)
+
+    for note in pulse.notes[:3]:
+        st.caption(f"ℹ️ {note}")
+
+    # --- ภาพรวมกระแส ---
+    hottest = pulse.hottest()
+    render_stat_row([
+        stat_card("ดัชนีกระแสมีมรวม", f"{pulse.hype_index:.0f}/100", pulse.market_mood,
+                  GOOD if pulse.hype_index >= 50 else WARNING),
+        stat_card("กระแสแรงสุด", hottest.symbol if hottest else "—",
+                  f"{hottest.trend} · คะแนน {hottest.buzz_score:.0f}" if hottest else ""),
+        stat_card("เหรียญที่กระแสกำลังขึ้น",
+                  f"{sum(1 for s in pulse.signals.values() if s.mention_change > 0.15)} เหรียญ",
+                  f"จากทั้งหมด {len(pulse.signals)} เหรียญ"),
+        stat_card("อารมณ์เฉลี่ย",
+                  f"{np.mean([s.sentiment for s in pulse.signals.values()]):+.2f}",
+                  "ช่วง -1 (ลบสุด) ถึง +1 (บวกสุด)"),
+    ])
+
+    st.markdown("")
+    left, right = st.columns([3, 2])
+    with left:
+        st.plotly_chart(charts.buzz_ranking(pulse), use_container_width=True)
+    with right:
+        st.plotly_chart(charts.buzz_vs_score(analysis, pulse), use_container_width=True)
+
+    st.markdown("---")
+
+    # --- หน้าต่างแชต ---
+    st.markdown("#### ถามบอท")
+
+    if "chat_messages" not in st.session_state:
+        st.session_state.chat_messages = []
+
+    cols = st.columns(len(SUGGESTED_QUESTIONS))
+    for col, question in zip(cols, SUGGESTED_QUESTIONS):
+        if col.button(question, use_container_width=True, key=f"suggest_{question}"):
+            st.session_state.pending_question = question
+
+    for message in st.session_state.chat_messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+            if message.get("caption"):
+                st.caption(message["caption"])
+
+    typed = st.chat_input("พิมพ์คำถามเกี่ยวกับเหรียญ กระแส หรือพอร์ตของคุณ")
+    question = typed or st.session_state.pop("pending_question", None)
+
+    if question:
+        st.session_state.chat_messages.append({"role": "user", "content": question})
+        with st.chat_message("user"):
+            st.markdown(question)
+
+        context = ChatContext(
+            analysis=analysis,
+            pulse=pulse,
+            portfolio=portfolio,
+            plans=build_all_plans(analysis, portfolio),
+        )
+
+        with st.chat_message("assistant"):
+            with st.spinner("กำลังประมวลผล..."):
+                reply = answer(question, context)
+            st.markdown(reply.text)
+            caption = reply.engine_label
+            if reply.error:
+                caption += f" · {reply.error}"
+            st.caption(caption)
+
+        st.session_state.chat_messages.append({
+            "role": "assistant", "content": reply.text, "caption": caption,
+        })
+
+    if st.session_state.chat_messages:
+        if st.button("ล้างบทสนทนา"):
+            st.session_state.chat_messages = []
+            st.rerun()
+
+    # --- รายละเอียดรายเหรียญ ---
+    st.markdown("---")
+    st.markdown("#### กระแสรายเหรียญ")
+
+    for signal in pulse.ranked():
+        with st.expander(f"{signal.symbol} — {signal.trend} "
+                         f"(คะแนน {signal.buzz_score:.0f}/100)"):
+            info, posts = st.columns([2, 3])
+            with info:
+                st.markdown(_buzz_badge(signal), unsafe_allow_html=True)
+                st.markdown(
+                    f"- ถูกพูดถึง **{signal.mentions_24h}** ครั้งใน 24 ชม.\n"
+                    f"- เปลี่ยนแปลง **{signal.mention_change * 100:+.0f}%** จากวันก่อน\n"
+                    f"- อารมณ์ **{signal.sentiment:+.2f}** — {signal.mood}\n"
+                    f"- ปฏิสัมพันธ์รวม **{signal.engagement:,}**"
+                    + (f"\n- อันดับค้นหายอดนิยม **#{signal.search_rank}**"
+                       if signal.search_rank else "")
+                )
+            with posts:
+                if signal.posts:
+                    st.markdown("**ตัวอย่างที่คนพูดถึง**")
+                    for post in signal.posts[:4]:
+                        mood = "🟢" if post.sentiment > 0.15 else (
+                            "🔴" if post.sentiment < -0.15 else "⚪")
+                        title = post.title[:110]
+                        if post.url:
+                            st.markdown(f"{mood} [{title}]({post.url})")
+                        else:
+                            st.markdown(f"{mood} {title}")
+                else:
+                    st.caption("ไม่มีตัวอย่างโพสต์")
+
+    st.caption(
+        "คะแนนกระแส = ปริมาณการพูดถึง 40% + การเร่งตัว 40% + อารมณ์ของข้อความ 20% · "
+        "อารมณ์วัดด้วยพจนานุกรมคำแสลงคริปโต (moon, rug, ngmi ฯลฯ) ไม่ใช่โมเดลภาษา · "
+        "X/Twitter และ TikTok ไม่มี API ฟรีที่ใช้ได้ตามข้อกำหนด ระบบจึงครอบคลุมเฉพาะ "
+        "Reddit และสัญญาณการค้นหา"
     )
