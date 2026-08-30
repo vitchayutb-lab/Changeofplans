@@ -35,14 +35,10 @@ services:
         sync: false
 
       # ── ค่าปรับแต่งที่แก้ได้ภายหลัง ────────────────────────────────────────
-      - key: BOT_API_BASE_URL
-        value: https://apigw1.bot.or.th/bot/public
-      - key: BOT_TIMEOUT_MS
-        value: "8000"
-      - key: RATE_LIMIT_MAX
-        value: "240"
-      - key: RATE_LIMIT_EXPENSIVE_MAX
-        value: "20"
+      # BOT_API_BASE_URL / BOT_API_KEY_HEADER / BOT_TIMEOUT_MS / RATE_LIMIT_*
+      # มีค่าเริ่มต้นที่ใช้งานได้อยู่ในโค้ดแล้ว ตั้งที่นี่เฉพาะเมื่อต้องการเปลี่ยน
+      # (เคยกำหนด BOT_API_BASE_URL ไว้ที่ apigw1.bot.or.th ซึ่ง ธปท. ปิดไปเมื่อ
+      #  31 ธ.ค. 2025 — ค่าที่ตั้งค้างไว้จะทับค่าเริ่มต้นที่ถูกต้อง จึงเอาออก)
 
     # ── เปิดบล็อกนี้เมื่อใช้แผน starter ขึ้นไป เพื่อให้ประวัติแชตและแคชอยู่ถาวร ──
     # disk:

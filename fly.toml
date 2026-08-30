@@ -17,7 +17,8 @@ primary_region = "sin"
   HOST = "0.0.0.0"
   PORT = "8787"
   SQLITE_PATH = "/data/app.db"
-  BOT_API_BASE_URL = "https://apigw1.bot.or.th/bot/public"
+  # BOT_API_BASE_URL มีค่าเริ่มต้น https://gateway.api.bot.or.th อยู่แล้ว
+  # ตั้งที่นี่เฉพาะเมื่อต้องการชี้ไปที่อื่น
 
 # ฐานข้อมูล SQLite ต้องอยู่บนดิสก์ถาวร มิฉะนั้นข้อมูลจะหายทุกครั้งที่ deploy
 [[mounts]]

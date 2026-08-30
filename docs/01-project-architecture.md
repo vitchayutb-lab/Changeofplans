@@ -65,7 +65,7 @@ These rules are non-negotiable and every module below is shaped by them.
          ▼
 ┌──────────────────┐  key present   ┌──────────────────────────┐
 │   BotApiClient   │───────────────▶│  Bank of Thailand API    │
-│   (interface)    │                │  apigw1.bot.or.th        │
+│   (interface)    │                │  gateway.api.bot.or.th   │
 └────────┬─────────┘                └──────────────────────────┘
          │ no key / error / timeout
          ▼

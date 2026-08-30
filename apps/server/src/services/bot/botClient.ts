@@ -7,6 +7,7 @@
  */
 
 import {
+  BOT_GATEWAY_URL,
   BOT_PORTAL_URL,
   env,
   redactSecrets,
@@ -102,7 +103,7 @@ export class LiveBotClient implements BotApiClient {
       throw new BotApiError(
         `ตั้งค่า BOT_API_BASE_URL ไม่ถูกต้อง: "${this.baseUrl}" — ` +
           `${validateBotBaseUrl(this.baseUrl) ?? 'ประกอบเป็น URL ไม่ได้'} ` +
-          'ตัวอย่างที่ถูก: https://apigw1.bot.or.th/bot/public',
+          `ตัวอย่างที่ถูก: ${BOT_GATEWAY_URL}`,
         'config',
       );
     }
