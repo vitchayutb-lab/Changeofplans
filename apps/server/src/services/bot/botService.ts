@@ -29,6 +29,26 @@ const SOURCE_LABEL_BOT = 'Bank of Thailand';
 const SOURCE_LABEL_DEMO = 'Demo Data';
 const NOTICE_UNAVAILABLE = 'BOT data temporarily unavailable.';
 
+/**
+ * ชุดข้อมูลที่หน้าภาพรวมแสดง — สถานะรวมของระบบสะท้อนเฉพาะกลุ่มนี้
+ *
+ * ต้องตรงกับที่ getSummary() เรียกจริง มีเทสต์ยืนยันไว้ เพราะถ้าหลุดจากกันเมื่อไร
+ * สถานะที่รายงานจะไม่ตรงกับสิ่งที่ผู้ใช้เห็นบนหน้าจอ
+ */
+export const SUMMARY_SERIES: BotSeriesId[] = [
+  'policy_rate',
+  'lending_rate',
+  'deposit_rate',
+  'spot_rate',
+];
+
+/** ชุดนี้ดึงข้อมูลจริงได้ล่าสุดหรือไม่ (เคยสำเร็จ และไม่มีข้อผิดพลาดที่ใหม่กว่า) */
+function isHealthy(state: HealthState): boolean {
+  if (!state.lastSuccessAt) return state.lastErrorAt === null;
+  if (!state.lastErrorAt) return true;
+  return Date.parse(state.lastSuccessAt) >= Date.parse(state.lastErrorAt);
+}
+
 export interface BotServiceOptions {
   liveClient?: BotApiClient;
   mockClient?: BotApiClient;
@@ -75,15 +95,16 @@ export class BotService {
     if (!this.canUseLive()) return 'demo';
     // ตั้งค่า base URL ผิด = เรียกไม่ได้แน่นอน ไม่ต้องรอให้ลองแล้วพังก่อนถึงจะบอก
     if (env.botApiBaseUrlError) return 'degraded';
-    if (this.health.lastErrorAt && !this.health.lastSuccessAt) return 'degraded';
-    if (
-      this.health.lastErrorAt &&
-      this.health.lastSuccessAt &&
-      Date.parse(this.health.lastErrorAt) > Date.parse(this.health.lastSuccessAt)
-    ) {
-      return 'degraded';
-    }
-    return 'live';
+
+    // ดูเฉพาะชุดที่แดชบอร์ดใช้จริง
+    //
+    // ธปท. ให้สิทธิ์เป็น product ชุดเสริมที่บัญชีไม่ได้ subscribe จึงตอบ 403 เป็นปกติ
+    // เมื่อมีคนเปิดดู การนับ 403 นั้นเป็น "ระบบขัดข้อง" ทำให้ทั้งเว็บขึ้นว่าใช้ข้อมูลจำลอง
+    // ทั้งที่ชุดหลักทุกชุดยังดึงข้อมูลจริงได้ครบ
+    const core = SUMMARY_SERIES.map((id) => this.seriesHealth.get(id));
+    if (core.every((state) => state === undefined)) return 'live';
+
+    return core.some((state) => state !== undefined && !isHealthy(state)) ? 'degraded' : 'live';
   }
 
   healthSnapshot(): HealthState & {
