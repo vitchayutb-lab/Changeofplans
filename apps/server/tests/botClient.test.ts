@@ -6,6 +6,7 @@ import {
   LiveBotClient,
   toBotError,
   upstreamDetail,
+  withSeriesContext,
 } from '../src/services/bot/botClient.js';
 import { BOT_SERIES } from '../src/services/bot/botSeries.js';
 import { BotApiError } from '../src/services/bot/botTypes.js';
@@ -322,5 +323,59 @@ describe('toBotError', () => {
     const looping = new Error('fetch failed') as Error & { cause?: unknown };
     looping.cause = looping;
     expect(() => toBotError(looping)).not.toThrow();
+  });
+});
+
+describe('บอกว่าชุดข้อมูลไหนที่เรียกไม่สำเร็จ', () => {
+  /** ธปท. ปฏิเสธคำขอด้วยสถานะและ body ที่กำหนด */
+  function rejectingClient(status: number, body: string): LiveBotClient {
+    return new LiveBotClient({
+      baseUrl: 'https://gateway.api.bot.or.th',
+      apiKey: 'x'.repeat(20),
+      maxRetries: 0,
+      fetchImpl: async () =>
+        new Response(body, { status, headers: { 'content-type': 'application/json' } }),
+    });
+  }
+
+  it('403 บอกทั้งชื่อชุด path และชื่อที่ใช้ค้นในแค็ตตาล็อก', async () => {
+    // อาการจริง: คีย์ผ่าน LoanRate แต่ยังไม่ได้ subscribe ชุดอื่น หน้าเว็บโหลด 7 ชุด
+    // ข้อความเดิมบอกแค่ว่า "ถูกปฏิเสธ" จึงไม่รู้ว่าต้องไป subscribe อะไร
+    const client = rejectingClient(403, '{"error": "Access to this API has been disallowed"}');
+    await expect(client.fetchSeries(BOT_SERIES.policy_rate, {})).rejects.toThrow(
+      /อัตราดอกเบี้ยนโยบาย/,
+    );
+    const error = await client.fetchSeries(BOT_SERIES.policy_rate, {}).catch((e) => e as Error);
+    expect(error.message).toContain(BOT_SERIES.policy_rate.path);
+    expect(error.message).toContain('Access to this API has been disallowed');
+    expect(error.message).toContain(BOT_SERIES.policy_rate.title);
+  });
+
+  it('แยกได้ว่าเป็นคนละชุดกัน เมื่อเรียกหลายชุดแล้วโดนปฏิเสธคนละที่', async () => {
+    const client = rejectingClient(403, '{"error": "Access to this API has been disallowed"}');
+    const [policy, deposit] = await Promise.all([
+      client.fetchSeries(BOT_SERIES.policy_rate, {}).catch((e) => (e as Error).message),
+      client.fetchSeries(BOT_SERIES.deposit_rate, {}).catch((e) => (e as Error).message),
+    ]);
+    expect(policy).not.toBe(deposit);
+    expect(policy).toContain(BOT_SERIES.policy_rate.path);
+    expect(deposit).toContain(BOT_SERIES.deposit_rate.path);
+  });
+
+  it('ไม่บอก path ซ้ำ เมื่อข้อความมี URL ที่เรียกอยู่แล้ว', () => {
+    const withUrl = new BotApiError(
+      `ปลายทางตอบกลับมาแต่ไม่ใช่ JSON URL ที่เรียก: https://gateway.api.bot.or.th${BOT_SERIES.policy_rate.path}`,
+      'response',
+    );
+    const decorated = withSeriesContext(withUrl, BOT_SERIES.policy_rate);
+    expect(decorated).toBe(withUrl);
+  });
+
+  it('เก็บประเภทและสถานะเดิมไว้ เพื่อให้ชั้นบนยังตัดสินใจถอยได้ถูก', () => {
+    const original = new BotApiError('ปฏิเสธคำขอ', 'auth', 403);
+    const decorated = withSeriesContext(original, BOT_SERIES.lending_rate);
+    expect(decorated.reason).toBe('auth');
+    expect(decorated.status).toBe(403);
+    expect(decorated.retryable).toBe(false);
   });
 });
