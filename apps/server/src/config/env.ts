@@ -65,11 +65,22 @@ function bool(key: string, fallback: boolean): boolean {
 }
 
 /**
+ * เกตเวย์เดิมของ BOT ที่ปิดให้บริการไปแล้ว
+ *
+ * ธปท. ย้ายระบบ BOT API ไปพอร์ทัลใหม่เมื่อ 17 ก.ย. 2025 และปิดระบบเดิมวันที่ 31 ธ.ค. 2025
+ * โฮสต์เหล่านี้จึงไม่มีอยู่ใน DNS อีกแล้ว การชี้ไปที่นี่จะได้ ENOTFOUND เสมอ
+ */
+export const RETIRED_BOT_HOSTS = ['apigw1.bot.or.th', 'apiportal.bot.or.th'];
+
+export const BOT_PORTAL_URL = 'https://portal.api.bot.or.th/';
+
+/**
  * ที่อยู่ของ BOT API ต้องเป็น URL เต็มรูปแบบที่ขึ้นต้นด้วย http หรือ https
- * คืนข้อความอธิบายเมื่อไม่ถูกต้อง และคืน null เมื่อใช้ได้
+ * คืนข้อความอธิบายเมื่อไม่ถูกต้อง และคืน null เมื่อใช้ได้ (รวมถึงกรณีที่ยังไม่ได้ตั้งค่า)
  */
 export function validateBotBaseUrl(value: string): string | null {
-  if (value.trim() === '') return 'ค่าว่าง';
+  // ยังไม่ได้ตั้งค่าไม่ใช่ "ค่าผิด" — เป็นสถานะที่ระบบรู้ว่ายังเรียกจริงไม่ได้ และบอกผู้ใช้แยกต่างหาก
+  if (value.trim() === '') return null;
 
   let parsed: URL;
   try {
@@ -83,6 +94,14 @@ export function validateBotBaseUrl(value: string): string | null {
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
     return `ใช้โปรโตคอล "${parsed.protocol}" ซึ่งไม่รองรับ — ต้องเป็น https://`;
   }
+
+  if (RETIRED_BOT_HOSTS.includes(parsed.hostname)) {
+    return (
+      `โฮสต์ "${parsed.hostname}" เป็นเกตเวย์เดิมที่ ธปท. ปิดให้บริการแล้วเมื่อ 31 ธ.ค. 2025 ` +
+      `จึงหาไม่เจอใน DNS — ต้องใช้ที่อยู่ของระบบใหม่จาก ${BOT_PORTAL_URL}`
+    );
+  }
+
   return null;
 }
 
@@ -150,10 +169,10 @@ export const env: AppEnv = {
   rateLimitExpensiveMax: num('RATE_LIMIT_EXPENSIVE_MAX', 20),
 
   botApiKey: str('BOT_API_KEY'),
-  botApiBaseUrl: str('BOT_API_BASE_URL', 'https://apigw1.bot.or.th/bot/public'),
-  botApiBaseUrlError: validateBotBaseUrl(
-    str('BOT_API_BASE_URL', 'https://apigw1.bot.or.th/bot/public'),
-  ),
+  // ไม่มีค่าเริ่มต้น: เกตเวย์เดิมถูกปิดไปแล้ว และที่อยู่ของระบบใหม่อยู่ในเอกสารหลัง login
+  // ของพอร์ทัลซึ่งต่างกันไปตามสิทธิ์ที่แต่ละคนสมัคร การเดาให้จึงมีแต่จะพาไปผิดทาง
+  botApiBaseUrl: str('BOT_API_BASE_URL'),
+  botApiBaseUrlError: validateBotBaseUrl(str('BOT_API_BASE_URL')),
   botApiKeyHeader: str('BOT_API_KEY_HEADER', 'X-IBM-Client-Id'),
   botTimeoutMs: num('BOT_TIMEOUT_MS', 8000),
   botMaxRetries: num('BOT_MAX_RETRIES', 2),
@@ -170,6 +189,27 @@ export const env: AppEnv = {
 /** มี API key ของ BOT ตั้งไว้หรือไม่ (ใช้ตอบ /api/health โดยไม่เปิดเผยค่า) */
 export function hasBotApiKey(): boolean {
   return env.botApiKey.trim().length > 0 && !env.botForceDemo;
+}
+
+/**
+ * ตั้งค่าครบพอที่จะเรียก BOT API จริงได้หรือยัง
+ * ต้องมีทั้ง API key และที่อยู่ของเกตเวย์ที่ใช้งานได้
+ */
+export function botLiveConfigured(): boolean {
+  return hasBotApiKey() && env.botApiBaseUrl.trim() !== '' && env.botApiBaseUrlError === null;
+}
+
+/** อธิบายว่ายังขาดอะไรถึงจะเรียกข้อมูลจริงได้ (null = ครบแล้ว) */
+export function botConfigGap(): string | null {
+  if (env.botForceDemo) return 'ถูกบังคับให้ใช้ข้อมูลจำลองด้วย BOT_FORCE_DEMO';
+  if (env.botApiKey.trim() === '') return 'ยังไม่ได้ตั้ง BOT_API_KEY';
+  if (env.botApiBaseUrl.trim() === '') {
+    return (
+      'ยังไม่ได้ตั้ง BOT_API_BASE_URL — ดูที่อยู่ของเกตเวย์ได้จากเอกสาร API ' +
+      `ในพอร์ทัลของคุณที่ ${BOT_PORTAL_URL}`
+    );
+  }
+  return env.botApiBaseUrlError;
 }
 
 export function hasAnthropicKey(): boolean {

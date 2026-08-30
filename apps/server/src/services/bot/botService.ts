@@ -15,7 +15,7 @@ import type {
   Provenance,
   SourceMode,
 } from '@sme/shared';
-import { env, hasBotApiKey } from '../../config/env.js';
+import { botConfigGap, botLiveConfigured, env, hasBotApiKey } from '../../config/env.js';
 import { defaultWindow, secondsBetween } from '../../util/dates.js';
 import * as botRepo from '../../db/botRepo.js';
 import { LiveBotClient } from './botClient.js';
@@ -64,7 +64,7 @@ export class BotService {
   /** มี API key และไม่ได้ถูกบังคับให้ใช้ข้อมูลจำลอง */
   private canUseLive(): boolean {
     if (this.forceDemo) return false;
-    return this.liveEnabled ?? hasBotApiKey();
+    return this.liveEnabled ?? botLiveConfigured();
   }
 
   /** โหมดปัจจุบันของแหล่งข้อมูล BOT สำหรับ /api/health */
@@ -86,7 +86,7 @@ export class BotService {
   healthSnapshot(): HealthState & { apiKeyConfigured: boolean; cachedSeries: number } {
     return {
       ...this.health,
-      apiKeyConfigured: this.canUseLive(),
+      apiKeyConfigured: hasBotApiKey(),
       cachedSeries: botRepo.cacheStats().rows,
     };
   }
@@ -188,7 +188,7 @@ export class BotService {
       resolved,
       'demo',
       cacheKey,
-      'DEMO MODE: ยังไม่ได้ตั้งค่า BOT_API_KEY จึงแสดงข้อมูลจำลอง',
+      `DEMO MODE: ${botConfigGap() ?? 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ BOT'} จึงแสดงข้อมูลจำลอง`,
     );
   }
 

@@ -116,13 +116,19 @@ docker run -d -p 80:8787 -e BOT_API_KEY=xxxxx -v sme-data:/data sme-finance-copi
 คัดลอก `.env.example` เป็น `.env` ที่รากโปรเจกต์ แล้วใส่ค่า:
 
 ```bash
-BOT_API_KEY=<Client ID ที่ได้จาก BOT API Portal>
-BOT_API_BASE_URL=https://apigw1.bot.or.th/bot/public
+BOT_API_KEY=<Client ID จากพอร์ทัลของคุณ>
+BOT_API_BASE_URL=<base URL จากเอกสาร API ในพอร์ทัลของคุณ>
 BOT_API_KEY_HEADER=X-IBM-Client-Id
 BOT_TIMEOUT_MS=8000
 BOT_MAX_RETRIES=2
 BOT_MAX_RPS=5
 ```
+
+> ⚠️ **`BOT_API_BASE_URL` ไม่มีค่าเริ่มต้นโดยตั้งใจ** — ธปท. ย้ายไปพอร์ทัลใหม่ที่
+> <https://portal.api.bot.or.th/> และปิดเกตเวย์เดิม `apigw1.bot.or.th` ไปแล้วเมื่อ
+> 31 ธ.ค. 2025 ที่อยู่ของระบบใหม่อยู่ในเอกสารหลัง login และต่างกันตามชุดข้อมูลที่
+> แต่ละบัญชี subscribe ระบบจึงไม่เดาให้ ถ้าไม่ตั้งจะทำงานใน DEMO MODE ต่อไป
+> รายละเอียดอยู่ที่ [`docs/06-deployment.md` §6.9](docs/06-deployment.md)
 
 ข้อกำหนดด้านความปลอดภัยที่ระบบบังคับไว้:
 
@@ -302,7 +308,7 @@ get_bot_economic_indicator(indicator, start, end)
 ## ชุดทดสอบ
 
 ```bash
-npm test          # 283 เทสต์ (server 266 + web 17)
+npm test          # 290 เทสต์ (server 273 + web 17)
 npm run typecheck # ตรวจชนิดข้อมูลทุก workspace
 npm run build     # สร้างของจริงทั้งหมด
 ```
@@ -323,7 +329,7 @@ npm run build     # สร้างของจริงทั้งหมด
 | `deployment.test.ts` | ตัวจำกัดอัตราคำขอคืน 429 · CORS ปิดตอน production · SPA deep link · ผูก `0.0.0.0` |
 | `generateSmes.test.ts` | **งบดุลของกิจการที่สร้างขึ้นทั้ง 1,000 รายทุกปีสมดุลจริง** · ยอดสินเชื่อตรงกับหนี้ในงบ · seed เดิมได้ผลเดิม |
 | `search.test.ts` | ค้นด้วยชื่อ/จังหวัด/รหัส · กรองหลายเงื่อนไข · แบ่งหน้าไม่ซ้ำ · จำกัดขนาดหน้า |
-| `config.test.ts` | ตรวจ `BOT_API_BASE_URL` · ตัดเครื่องหมายคำพูดที่ครอบค่า · **ข้อความผิดพลาดต้องบอกชื่อตัวแปรที่ต้องแก้ ไม่ใช่แค่ "Invalid URL"** |
+| `config.test.ts` | ตรวจ `BOT_API_BASE_URL` · ตัดเครื่องหมายคำพูดที่ครอบค่า · **ตรวจจับเกตเวย์เดิมที่ถูกปิดไปแล้ว** · ข้อความผิดพลาดต้องบอกตัวแปรที่ต้องแก้ |
 | `startup.test.ts` | ส่วนต่างความเสี่ยง · วงเงินที่รองรับได้ · น้ำหนักรวม = 100 · **เงื่อนไขที่บล็อกทันทีมีผลเหนือคะแนน** · ข้อเสนอแนะมีตัวเลขจริง |
 | `SourceBadge.test.tsx` | ข้อมูลจำลองต้องขึ้นคำว่า `Demo Data` เสมอ ข้อมูลจริงขึ้น `Source: Bank of Thailand` |
 

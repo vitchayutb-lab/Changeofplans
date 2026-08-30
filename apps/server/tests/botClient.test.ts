@@ -148,6 +148,13 @@ describe('LiveBotClient.fetchSeries', () => {
 });
 
 describe('toBotError', () => {
+  /** เลียนแบบ error ของ fetch ใน Node ซึ่งซ่อนสาเหตุจริงไว้ใน cause */
+  function fetchFailure(code: string, message: string): Error {
+    const cause = new Error(message) as Error & { code: string };
+    cause.code = code;
+    return new Error('fetch failed', { cause });
+  }
+
   it('คงชนิดของ BotApiError เดิมไว้', () => {
     const error = toBotError(new BotApiError('nope', 'server', 502));
     expect(error.reason).toBe('server');
@@ -157,5 +164,40 @@ describe('toBotError', () => {
   it('แปลง error ทั่วไปเป็นชนิด network', () => {
     expect(toBotError(new Error('socket hang up')).reason).toBe('network');
     expect(toBotError('อะไรก็ไม่รู้').reason).toBe('network');
+  });
+
+  it('แกะสาเหตุจริงออกมาแทนที่จะทิ้งไว้แค่ "fetch failed"', () => {
+    const error = toBotError(
+      fetchFailure('ENOTFOUND', 'getaddrinfo ENOTFOUND gateway.example.test'),
+    );
+    expect(error.message).toContain('ENOTFOUND');
+    expect(error.message).toContain('gateway.example.test');
+    expect(error.message).not.toBe('เรียก BOT API ไม่สำเร็จ (fetch failed)');
+  });
+
+  it('อธิบายรหัสข้อผิดพลาดเป็นภาษาที่ผู้ใช้ทำอะไรต่อได้', () => {
+    expect(toBotError(fetchFailure('ENOTFOUND', 'getaddrinfo ENOTFOUND x')).message).toContain(
+      'DNS',
+    );
+    expect(toBotError(fetchFailure('ECONNREFUSED', 'connect ECONNREFUSED')).message).toContain(
+      'ปฏิเสธการเชื่อมต่อ',
+    );
+    expect(toBotError(fetchFailure('CERT_HAS_EXPIRED', 'certificate expired')).message).toContain(
+      'TLS',
+    );
+  });
+
+  it('ชี้ให้ตรงจุดเมื่อยังชี้ไปยังเกตเวย์เดิมที่ ธปท. ปิดไปแล้ว', () => {
+    const error = toBotError(
+      fetchFailure('ENOTFOUND', 'getaddrinfo ENOTFOUND apigw1.bot.or.th'),
+    );
+    expect(error.message).toContain('ปิดให้บริการ');
+    expect(error.message).toContain('portal.api.bot.or.th');
+  });
+
+  it('ไม่ไล่ cause ลึกจนวนไม่จบเมื่อ error อ้างถึงตัวเอง', () => {
+    const looping = new Error('fetch failed') as Error & { cause?: unknown };
+    looping.cause = looping;
+    expect(() => toBotError(looping)).not.toThrow();
   });
 });

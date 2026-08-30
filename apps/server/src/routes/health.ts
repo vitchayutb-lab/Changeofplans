@@ -2,7 +2,7 @@
 
 import { Router } from 'express';
 import type { HealthResponse } from '@sme/shared';
-import { env } from '../config/env.js';
+import { botConfigGap, env } from '../config/env.js';
 import { databaseHealthy } from '../db/index.js';
 import { cacheStats } from '../db/botRepo.js';
 import { getBotService } from '../services/bot/botService.js';
@@ -39,7 +39,7 @@ healthRouter.get(
         lastErrorAt: snapshot.lastErrorAt,
         lastError: snapshot.lastError,
         cachedSeries: cacheStats().rows,
-        baseUrlError: env.botApiBaseUrlError,
+        baseUrlError: botConfigGap(),
       },
     };
 

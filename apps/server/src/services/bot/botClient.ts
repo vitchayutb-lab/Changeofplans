@@ -6,7 +6,13 @@
  * แปลงข้อมูล และ "ล้าง" ค่า secret ออกจากข้อความ error ก่อนส่งต่อ
  */
 
-import { env, redactSecrets, validateBotBaseUrl } from '../../config/env.js';
+import {
+  BOT_PORTAL_URL,
+  env,
+  redactSecrets,
+  RETIRED_BOT_HOSTS,
+  validateBotBaseUrl,
+} from '../../config/env.js';
 import { normalizeSeries } from './botNormalize.js';
 import { BotApiError } from './botTypes.js';
 import type {
@@ -117,6 +123,13 @@ export class LiveBotClient implements BotApiClient {
     if (!this.apiKey) {
       throw new BotApiError('BOT_API_KEY is not configured', 'auth');
     }
+    if (this.baseUrl.trim() === '') {
+      throw new BotApiError(
+        'ยังไม่ได้ตั้ง BOT_API_BASE_URL — ' +
+          `ดูที่อยู่ของเกตเวย์ได้จากเอกสาร API ในพอร์ทัลของคุณที่ ${BOT_PORTAL_URL}`,
+        'config',
+      );
+    }
 
     const url = this.buildUrl(descriptor, params);
     let lastError: BotApiError | null = null;
@@ -194,15 +207,70 @@ export class LiveBotClient implements BotApiClient {
  * แปลง error ใด ๆ ให้เป็น BotApiError และล้างค่า secret ออกจากข้อความ
  * (error ของ fetch บางกรณีแนบ URL หรือ header กลับมาด้วย)
  */
+/**
+ * คำอธิบายภาษาคนของรหัสข้อผิดพลาดระดับเครือข่าย
+ * fetch ของ Node คืนแค่ "fetch failed" ซึ่งไม่ช่วยอะไรเลย สาเหตุจริงอยู่ใน error.cause
+ */
+const NETWORK_HINTS: Record<string, string> = {
+  ENOTFOUND: 'หาที่อยู่เซิร์ฟเวอร์ไม่เจอ (DNS) — ตรวจว่าชื่อโฮสต์ใน BOT_API_BASE_URL ถูกต้องและยังเปิดให้บริการอยู่',
+  EAI_AGAIN: 'ค้นหา DNS ไม่สำเร็จชั่วคราว — ลองใหม่อีกครั้ง หรือตรวจการตั้งค่า DNS ของเครื่องที่รัน',
+  ECONNREFUSED: 'เซิร์ฟเวอร์ปฏิเสธการเชื่อมต่อ — ตรวจพอร์ตและว่าปลายทางเปิดให้เข้าถึงจากที่นี่หรือไม่',
+  ECONNRESET: 'การเชื่อมต่อถูกตัดกลางคัน — อาจติดไฟร์วอลล์หรือพร็อกซีระหว่างทาง',
+  ETIMEDOUT: 'เชื่อมต่อไม่ทันเวลา — ปลายทางอาจไม่เปิดให้เข้าถึงจากเครือข่ายนี้',
+  UND_ERR_CONNECT_TIMEOUT: 'เชื่อมต่อไม่ทันเวลา — ปลายทางอาจไม่เปิดให้เข้าถึงจากเครือข่ายนี้',
+  CERT_HAS_EXPIRED: 'ใบรับรอง TLS ของปลายทางหมดอายุ',
+  UNABLE_TO_VERIFY_LEAF_SIGNATURE: 'ตรวจสอบใบรับรอง TLS ไม่ผ่าน — อาจมีพร็อกซีคั่นกลาง',
+  DEPTH_ZERO_SELF_SIGNED_CERT: 'ปลายทางใช้ใบรับรองที่เซ็นเอง',
+};
+
+/** ไล่หาสาเหตุที่ซ้อนอยู่ชั้นในสุดของ error */
+function rootCause(error: Error): { code: string | null; message: string } {
+  let current: unknown = error;
+  let depth = 0;
+  let code: string | null = null;
+  let message = error.message;
+
+  while (current instanceof Error && depth < 5) {
+    const candidate = (current as Error & { code?: string }).code;
+    if (typeof candidate === 'string') code = candidate;
+    if (current.message && current.message !== 'fetch failed') message = current.message;
+    current = (current as Error & { cause?: unknown }).cause;
+    depth += 1;
+  }
+
+  return { code, message };
+}
+
 export function toBotError(error: unknown): BotApiError {
   if (error instanceof BotApiError) {
     return new BotApiError(redactSecrets(error.message), error.reason, error.status);
   }
+
   if (error instanceof Error) {
     if (error.name === 'AbortError' || /aborted|timeout/i.test(error.message)) {
       return new BotApiError('BOT request timed out', 'timeout');
     }
-    return new BotApiError(redactSecrets(`BOT request failed: ${error.message}`), 'network');
+
+    const { code, message } = rootCause(error);
+    const hint = code ? NETWORK_HINTS[code] : undefined;
+
+    // ชี้ให้ตรงจุดเมื่อผู้ใช้ยังชี้ไปที่เกตเวย์เดิมที่ถูกปิดไปแล้ว
+    let retiredNote = '';
+    if (code === 'ENOTFOUND') {
+      const host = RETIRED_BOT_HOSTS.find((candidate) => message.includes(candidate));
+      if (host) {
+        retiredNote =
+          ` — "${host}" เป็นเกตเวย์เดิมที่ ธปท. ปิดให้บริการแล้วเมื่อ 31 ธ.ค. 2025 ` +
+          `ต้องใช้ที่อยู่ของระบบใหม่จาก ${BOT_PORTAL_URL}`;
+      }
+    }
+
+    const detail = [code ? `${code}: ${message}` : message, hint].filter(Boolean).join(' — ');
+    return new BotApiError(
+      redactSecrets(`เรียก BOT API ไม่สำเร็จ (${detail}${retiredNote})`),
+      'network',
+    );
   }
+
   return new BotApiError('BOT request failed for an unknown reason', 'network');
 }
