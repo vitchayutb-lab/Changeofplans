@@ -1,7 +1,7 @@
 /** เทสต์ตัวเชื่อม BOT API จริง โดยฉีด fetch ปลอมเข้าไป — ไม่มีการยิงเครือข่ายจริง */
 
 import { describe, expect, it, vi } from 'vitest';
-import { LiveBotClient, toBotError } from '../src/services/bot/botClient.js';
+import { describeNonJson, LiveBotClient, toBotError } from '../src/services/bot/botClient.js';
 import { BOT_SERIES } from '../src/services/bot/botSeries.js';
 import { BotApiError } from '../src/services/bot/botTypes.js';
 
@@ -116,6 +116,27 @@ describe('LiveBotClient.fetchSeries', () => {
     ).rejects.toMatchObject({ reason: 'response' });
   });
 
+  it('บอกด้วยว่าได้อะไรกลับมา เมื่อปลายทางตอบ 200 แต่ไม่ใช่ JSON', async () => {
+    // อาการนี้เกิดเมื่อ base URL ชี้ไปที่หน้าเว็บพอร์ทัลแทนที่จะเป็นเกตเวย์ API
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response('<!doctype html><html><body>BOT API Developer Portal</body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }),
+    );
+
+    try {
+      await client(fetchImpl as unknown as typeof fetch).fetchSeries(BOT_SERIES.policy_rate, {});
+      expect.unreachable('ควรโยนข้อผิดพลาด');
+    } catch (error) {
+      const message = (error as Error).message;
+      expect(message).toContain('text/html');
+      expect(message).toContain('BOT_API_BASE_URL');
+      expect(message).toContain('Developer Portal');
+    }
+  });
+
   it('ปฏิเสธทันทีเมื่อยังไม่ได้ตั้งค่า API key', async () => {
     const fetchImpl = vi.fn();
     await expect(
@@ -144,6 +165,42 @@ describe('LiveBotClient.fetchSeries', () => {
         {},
       ),
     ).rejects.toMatchObject({ reason: 'timeout' });
+  });
+});
+
+describe('describeNonJson', () => {
+  const url = 'https://gateway.example.test/bot/public/PolicyRate/v3/policy_rate';
+
+  it('ชี้ว่าเป็นหน้าเว็บ ไม่ใช่ API เมื่อได้ HTML กลับมา', () => {
+    const message = describeNonJson(url, 'text/html', '<!doctype html><html>...</html>');
+    expect(message).toContain('หน้าเว็บ');
+    expect(message).toContain('BOT_API_BASE_URL');
+  });
+
+  it('จับได้แม้ content-type ไม่ได้บอกว่าเป็น HTML', () => {
+    expect(describeNonJson(url, null, '<html><body>hi</body></html>')).toContain('หน้าเว็บ');
+  });
+
+  it('บอกเพิ่มเมื่อสิ่งที่ได้มาดูเหมือนหน้าเข้าสู่ระบบ', () => {
+    const message = describeNonJson(url, 'text/html', '<html><body>Please sign in</body></html>');
+    expect(message).toContain('เข้าสู่ระบบ');
+  });
+
+  it('body ที่ไม่ใช่ HTML ก็ยังบอกให้ตรวจ base URL และ path', () => {
+    const message = describeNonJson(url, 'text/plain', 'Not Found');
+    expect(message).toContain('path');
+    expect(message).toContain('Not Found');
+  });
+
+  it('ตัดความยาวและช่องว่างซ้อนของ body ที่ยกมาแสดง', () => {
+    const message = describeNonJson(url, 'text/html', '<html>\n\n   ' + 'x'.repeat(500));
+    expect(message).toContain('…');
+    expect(message).not.toContain('\n');
+    expect(message.length).toBeLessThan(800);
+  });
+
+  it('ระบุ URL ที่เรียกไปเพื่อให้เทียบกับเอกสารได้', () => {
+    expect(describeNonJson(url, 'text/html', '<html></html>')).toContain(url);
   });
 });
 

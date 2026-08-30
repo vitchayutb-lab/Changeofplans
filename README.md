@@ -308,7 +308,7 @@ get_bot_economic_indicator(indicator, start, end)
 ## ชุดทดสอบ
 
 ```bash
-npm test          # 290 เทสต์ (server 273 + web 17)
+npm test          # 297 เทสต์ (server 280 + web 17)
 npm run typecheck # ตรวจชนิดข้อมูลทุก workspace
 npm run build     # สร้างของจริงทั้งหมด
 ```

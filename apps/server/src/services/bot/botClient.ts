@@ -195,7 +195,9 @@ export class LiveBotClient implements BotApiClient {
       try {
         return JSON.parse(text) as unknown;
       } catch {
-        throw new BotApiError('BOT returned a body that is not valid JSON', 'response');
+        // ตอบ 200 แต่ไม่ใช่ JSON แปลว่าต่อถึงเซิร์ฟเวอร์แล้ว แต่ไม่ใช่ endpoint ของ API
+        // ต้องบอกว่าได้อะไรกลับมา ไม่งั้นผู้ใช้ไม่มีทางรู้ว่าชี้ผิดที่ตรงไหน
+        throw new BotApiError(describeNonJson(url, response.headers.get('content-type'), text), 'response');
       }
     } finally {
       clearTimeout(timer);
@@ -207,6 +209,44 @@ export class LiveBotClient implements BotApiClient {
  * แปลง error ใด ๆ ให้เป็น BotApiError และล้างค่า secret ออกจากข้อความ
  * (error ของ fetch บางกรณีแนบ URL หรือ header กลับมาด้วย)
  */
+/**
+ * อธิบายว่าปลายทางตอบอะไรกลับมาเมื่อไม่ใช่ JSON
+ *
+ * กรณีที่พบบ่อยที่สุดคือ BOT_API_BASE_URL ชี้ไปที่ "เว็บพอร์ทัล" แทนที่จะเป็น
+ * "เกตเวย์ของ API" ซึ่งจะตอบหน้า HTML กลับมาพร้อมสถานะ 200 ทำให้ดูเหมือนเรียกสำเร็จ
+ */
+export function describeNonJson(
+  url: string,
+  contentType: string | null,
+  body: string,
+): string {
+  // ตัดช่องว่างซ้อนออกและจำกัดความยาว เพื่อให้ข้อความยังอ่านได้ในแบนเนอร์
+  const snippet = body.replace(/\s+/g, ' ').trim().slice(0, 160);
+  const looksHtml = /^\s*<(!doctype|html|\?xml)/i.test(body) || /text\/html/i.test(contentType ?? '');
+
+  const parts = [
+    'ปลายทางตอบกลับมาแต่ไม่ใช่ JSON',
+    `(content-type: ${contentType ?? 'ไม่ระบุ'})`,
+  ];
+
+  if (looksHtml) {
+    parts.push(
+      '— ได้หน้าเว็บ (HTML) กลับมา ซึ่งแปลว่า BOT_API_BASE_URL ชี้ไปที่หน้าเว็บพอร์ทัล ' +
+        'ไม่ใช่ที่อยู่ของเกตเวย์ API ให้ดู base URL ที่ระบุไว้ในเอกสาร API ของชุดข้อมูลที่คุณ subscribe',
+    );
+    if (/login|sign\s*in|เข้าสู่ระบบ/i.test(snippet)) {
+      parts.push('(หน้าที่ได้มาดูเหมือนหน้าเข้าสู่ระบบ)');
+    }
+  } else {
+    parts.push('— ตรวจว่า base URL และ path ตรงกับเอกสารของพอร์ทัลหรือไม่');
+  }
+
+  parts.push(`URL ที่เรียก: ${url}`);
+  if (snippet) parts.push(`สิ่งที่ได้กลับมา: ${snippet}${body.length > 160 ? '…' : ''}`);
+
+  return parts.join(' ');
+}
+
 /**
  * คำอธิบายภาษาคนของรหัสข้อผิดพลาดระดับเครือข่าย
  * fetch ของ Node คืนแค่ "fetch failed" ซึ่งไม่ช่วยอะไรเลย สาเหตุจริงอยู่ใน error.cause
