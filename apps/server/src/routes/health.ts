@@ -39,6 +39,7 @@ healthRouter.get(
         lastErrorAt: snapshot.lastErrorAt,
         lastError: snapshot.lastError,
         cachedSeries: cacheStats().rows,
+        baseUrlError: env.botApiBaseUrlError,
       },
     };
 

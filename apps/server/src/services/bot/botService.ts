@@ -70,6 +70,8 @@ export class BotService {
   /** โหมดปัจจุบันของแหล่งข้อมูล BOT สำหรับ /api/health */
   mode(): SourceMode {
     if (!this.canUseLive()) return 'demo';
+    // ตั้งค่า base URL ผิด = เรียกไม่ได้แน่นอน ไม่ต้องรอให้ลองแล้วพังก่อนถึงจะบอก
+    if (env.botApiBaseUrlError) return 'degraded';
     if (this.health.lastErrorAt && !this.health.lastSuccessAt) return 'degraded';
     if (
       this.health.lastErrorAt &&

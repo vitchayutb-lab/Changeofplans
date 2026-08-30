@@ -29,9 +29,26 @@ function findRepoRootOffset(): string {
   return process.cwd();
 }
 
+/**
+ * อ่านค่าสตริงจาก environment
+ *
+ * ตัดช่องว่างและเครื่องหมายคำพูดที่ครอบอยู่ออกด้วย เพราะช่องกรอกตัวแปรของแพลตฟอร์ม
+ * อย่าง Render หรือ Fly ไม่ได้ตัดให้เหมือน dotenv — ผู้ใช้ที่วาง "https://..." ทั้งก้อน
+ * จะได้ค่าที่มีเครื่องหมายคำพูดติดมาจริง ๆ แล้วพังตอนประกอบ URL
+ */
 function str(key: string, fallback = ''): string {
-  const value = process.env[key];
-  return value === undefined || value === '' ? fallback : value;
+  const raw = process.env[key];
+  if (raw === undefined) return fallback;
+
+  let value = raw.trim();
+  if (value.length >= 2) {
+    const first = value[0];
+    const last = value[value.length - 1];
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      value = value.slice(1, -1).trim();
+    }
+  }
+  return value === '' ? fallback : value;
 }
 
 function num(key: string, fallback: number): number {
@@ -45,6 +62,28 @@ function bool(key: string, fallback: boolean): boolean {
   const raw = process.env[key];
   if (raw === undefined || raw.trim() === '') return fallback;
   return ['1', 'true', 'yes', 'on'].includes(raw.trim().toLowerCase());
+}
+
+/**
+ * ที่อยู่ของ BOT API ต้องเป็น URL เต็มรูปแบบที่ขึ้นต้นด้วย http หรือ https
+ * คืนข้อความอธิบายเมื่อไม่ถูกต้อง และคืน null เมื่อใช้ได้
+ */
+export function validateBotBaseUrl(value: string): string | null {
+  if (value.trim() === '') return 'ค่าว่าง';
+
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return value.startsWith('http')
+      ? 'รูปแบบ URL ไม่ถูกต้อง'
+      : 'ขาด https:// นำหน้า (ต้องเป็น URL เต็ม ไม่ใช่แค่ชื่อโฮสต์)';
+  }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return `ใช้โปรโตคอล "${parsed.protocol}" ซึ่งไม่รองรับ — ต้องเป็น https://`;
+  }
+  return null;
 }
 
 export interface AppEnv {
@@ -74,6 +113,8 @@ export interface AppEnv {
   /** ความลับ — ห้ามส่งออกนอกเซิร์ฟเวอร์ */
   botApiKey: string;
   botApiBaseUrl: string;
+  /** ข้อความอธิบายเมื่อ BOT_API_BASE_URL ตั้งค่าไว้ไม่ถูก (null = ใช้ได้) */
+  botApiBaseUrlError: string | null;
   botApiKeyHeader: string;
   botTimeoutMs: number;
   botMaxRetries: number;
@@ -110,6 +151,9 @@ export const env: AppEnv = {
 
   botApiKey: str('BOT_API_KEY'),
   botApiBaseUrl: str('BOT_API_BASE_URL', 'https://apigw1.bot.or.th/bot/public'),
+  botApiBaseUrlError: validateBotBaseUrl(
+    str('BOT_API_BASE_URL', 'https://apigw1.bot.or.th/bot/public'),
+  ),
   botApiKeyHeader: str('BOT_API_KEY_HEADER', 'X-IBM-Client-Id'),
   botTimeoutMs: num('BOT_TIMEOUT_MS', 8000),
   botMaxRetries: num('BOT_MAX_RETRIES', 2),
