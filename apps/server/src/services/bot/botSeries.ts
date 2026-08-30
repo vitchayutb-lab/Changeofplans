@@ -43,6 +43,8 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     unit: 'percent_per_annum',
     ttlSeconds: 1 * HOUR,
     supportsDateRange: true,
+    // ธปท. ตอบ 400 เมื่อขอ 90 วัน แต่รับ 27 วันได้ (ตรวจกับการเรียกจริง)
+    maxRangeDays: 31,
     supportsCurrency: false,
     dimensions: ['MLR', 'MOR', 'MRR'],
     periodFields: ['period', 'date', 'as_of_date'],
@@ -74,6 +76,8 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     unit: 'percent_per_annum',
     ttlSeconds: 1 * HOUR,
     supportsDateRange: true,
+    // ธปท. ตอบ 400 เมื่อขอ 90 วัน แต่รับ 27 วันได้ (ตรวจกับการเรียกจริง)
+    maxRangeDays: 31,
     supportsCurrency: false,
     dimensions: ['savings', '3m', '6m', '12m', '24m'],
     periodFields: ['period', 'date', 'as_of_date'],

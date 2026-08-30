@@ -239,3 +239,19 @@ describe('ตัวคัดกรองแถว', () => {
     );
   });
 });
+
+describe('รูปแบบผลลัพธ์ที่ยังไม่รู้จัก', () => {
+  it('รับกรณีที่แถวข้อมูลอยู่ใน result.data ตรง ๆ ไม่มีชั้น data_detail', () => {
+    const rows = extractDetail({ result: { data: [{ period: '2026-08-01', rate: '1.50' }] } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ period: '2026-08-01' });
+  });
+
+  it('บอกคีย์ที่ได้มาจริง เมื่อไม่รู้จักรูปแบบ แทนที่จะบอกแค่ว่าไม่มี data_detail', () => {
+    // ผลลัพธ์จริงของ PolicyRate/v3 ไม่มี data_detail และข้อความเดิมไม่บอกว่ามีอะไรแทน
+    // จึงต้องเดารูปแบบใหม่ทุกครั้ง แทนที่จะแก้ได้จบในรอบเดียว
+    expect(() =>
+      extractDetail({ result: { timestamp: 'x', api: 'y', data: { observations: [] } } }),
+    ).toThrow(/timestamp, api, data.*observations/s);
+  });
+})

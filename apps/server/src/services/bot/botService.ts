@@ -17,7 +17,7 @@ import type {
   SourceMode,
 } from '@sme/shared';
 import { botConfigGap, botLiveConfigured, env, hasBotApiKey } from '../../config/env.js';
-import { defaultWindow, secondsBetween } from '../../util/dates.js';
+import { clampRange, defaultWindow, secondsBetween } from '../../util/dates.js';
 import * as botRepo from '../../db/botRepo.js';
 import { LiveBotClient } from './botClient.js';
 import { MockBotClient } from './botMockClient.js';
@@ -149,10 +149,10 @@ export class BotService {
       throw new BotApiError(`Unknown BOT series "${seriesId}"`, 'response');
     }
 
-    const window = defaultWindow(90);
+    const window = defaultWindow(Math.min(90, descriptor.maxRangeDays ?? 90));
+    const requested = { start: params.start ?? window.start, end: params.end ?? window.end };
     const resolved: BotFetchParams = {
-      start: params.start ?? window.start,
-      end: params.end ?? window.end,
+      ...clampRange(requested, descriptor.maxRangeDays),
       ...(descriptor.supportsCurrency && params.currency
         ? { currency: params.currency.toUpperCase() }
         : {}),
