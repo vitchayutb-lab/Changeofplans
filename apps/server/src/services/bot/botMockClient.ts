@@ -35,6 +35,7 @@ const POLICY_STEPS: { daysAgo: number; rate: number }[] = [
 const BASE_LEVELS: Record<string, Record<string, number>> = {
   lending_rate: { MLR: 5.85, MOR: 6.3, MRR: 6.0 },
   deposit_rate: { savings: 0.45, '3m': 1.05, '6m': 1.2, '12m': 1.45, '24m': 1.75 },
+  spot_rate: { USD: 34.5 },
   fx_reference: { USD: 34.5 },
   fx_average: { USD: 34.5, EUR: 37.6, JPY: 0.235, CNY: 4.82, GBP: 44.2, SGD: 26.1 },
   interbank_rate: { overnight: 1.48 },

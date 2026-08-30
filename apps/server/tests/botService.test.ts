@@ -349,3 +349,38 @@ describe('เพดานความกว้างของช่วงวั�
     expect(span).toBeLessThanOrEqual(BOT_SERIES.lending_rate.maxRangeDays!);
   });
 })
+
+describe('แหล่งอัตราแลกเปลี่ยนของแดชบอร์ด', () => {
+  it('ขอ USD/THB จากชุดที่อยู่ในแพ็กเดียวกับอัตราดอกเบี้ย', async () => {
+    // Stat-ExchangeRate เป็นคนละ product ที่ต้อง subscribe แยก จึงตอบ 403 ด้วยคีย์เดิม
+    // ส่วน SPOT-RATE อยู่ใน Interest Rates Plan เดียวกัน ใช้คีย์เดิมได้เลย
+    const asked: string[] = [];
+    const spy: BotApiClient = {
+      kind: 'live',
+      async fetchSeries(descriptor) {
+        asked.push(descriptor.id);
+        return {
+          observations: [{ period: '2026-08-27', dimension: descriptor.dimensions[0]!, value: 34.6 }],
+          lastUpdated: null,
+          unit: descriptor.unit,
+        };
+      },
+    };
+    const summary = await new BotService({ liveClient: spy, liveEnabled: true }).getSummary();
+
+    expect(asked).toContain('spot_rate');
+    expect(asked).not.toContain('fx_average');
+    expect(summary.usdThb.provenance.source).toBe('bot');
+  });
+
+  it('ยังมีข้อมูลจำลองให้ เมื่อยังไม่ได้ตั้งคีย์', async () => {
+    const summary = await new BotService({ forceDemo: true }).getSummary();
+    expect(summary.usdThb.current).toBeGreaterThan(0);
+    expect(summary.usdThb.provenance.source).toBe('demo');
+  });
+
+  it('คงชุด Stat-ExchangeRate ไว้ในทะเบียนสำหรับผู้ที่ subscribe แยก', () => {
+    expect(BOT_SERIES.fx_average.dimensions).toContain('EUR');
+    expect(BOT_SERIES.spot_rate.path).toBe('/Stat-SpotRate/v2/SPOTRATE');
+  });
+})

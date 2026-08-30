@@ -106,6 +106,30 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
       'ใช้เทียบผลตอบแทนของเงินสดที่ถืออยู่',
   },
 
+  spot_rate: {
+    id: 'spot_rate',
+    title: 'Spot Rate USD/THB',
+    titleTh: 'อัตราแลกเปลี่ยนทันที ดอลลาร์สหรัฐ/บาท',
+    // อยู่ใน Interest Rates Plan เดียวกับชุดอัตราดอกเบี้ย จึงใช้ได้ด้วยคีย์เดิม
+    // ต่างจาก Stat-ExchangeRate / Stat-ReferenceRate ที่อยู่คนละ product
+    path: '/Stat-SpotRate/v2/SPOTRATE',
+    unit: 'thb_per_unit',
+    ttlSeconds: 10 * MINUTE,
+    supportsDateRange: true,
+    // ยังไม่ทราบเพดานของ endpoint นี้ ตั้งเท่าที่ยืนยันแล้วว่า ธปท. รับได้ในชุดอื่น
+    maxRangeDays: 31,
+    supportsCurrency: false,
+    dimensions: ['USD'],
+    periodFields: ['period', 'date', 'as_of_date'],
+    // ยังไม่ได้ตรวจกับผลลัพธ์จริง — ถ้าไม่ตรง ข้อความผิดพลาดจะบอกคอลัมน์ที่ได้มาจริง
+    valueFields: {
+      USD: ['spot_rate', 'spotrate', 'rate', 'mid_rate', 'average', 'value', 'usd_thb'],
+    },
+    nestedArrayKeys: ['detail', 'observation'],
+    description:
+      'อัตราแลกเปลี่ยนทันที USD/THB ที่ ธปท. เผยแพร่ ใช้ประเมินผลกระทบค่าเงินต่อรายได้และต้นทุนนำเข้า',
+  },
+
   fx_reference: {
     id: 'fx_reference',
     title: 'Weighted-average Interbank Exchange Rate THB/USD',

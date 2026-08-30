@@ -321,13 +321,14 @@ export class BotService {
         label: 'Deposit Rate (12M)',
         labelTh: 'อัตราดอกเบี้ยเงินฝากประจำ 12 เดือน',
       }),
+      // ใช้ SPOT-RATE เพราะอยู่ในแพ็กเดียวกับชุดอัตราดอกเบี้ย ส่วน Stat-ExchangeRate
+      // เป็นคนละ product ที่ต้อง subscribe แยก — ชุดนั้นยังอยู่ในทะเบียนสำหรับผู้ที่ subscribe ไว้
       this.getMetric({
-        seriesId: 'fx_average',
+        seriesId: 'spot_rate',
         dimension: 'USD',
         key: 'usd_thb',
         label: 'USD/THB',
         labelTh: 'ดอลลาร์สหรัฐ/บาท',
-        params: { currency: 'USD' },
       }),
     ]);
 
