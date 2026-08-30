@@ -1,10 +1,10 @@
 /** เทสต์ชั้นบริการ BOT: แคช การถอยไปข้อมูลเก่า และการถอยไปข้อมูลจำลอง */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { BotObservation } from '@sme/shared';
+import type { BotObservation, BotSeriesId } from '@sme/shared';
 import { BotService, buildCacheKey, metricFromSeries } from '../src/services/bot/botService.js';
 import { MockBotClient, policyRateAt } from '../src/services/bot/botMockClient.js';
-import { BOT_SERIES } from '../src/services/bot/botSeries.js';
+import { BOT_SERIES, listSeriesDescriptors } from '../src/services/bot/botSeries.js';
 import { BotApiError } from '../src/services/bot/botTypes.js';
 import type { BotApiClient, BotFetchResult } from '../src/services/bot/botTypes.js';
 import { freshDb } from './helpers.js';
@@ -242,5 +242,68 @@ describe('MockBotClient', () => {
   it('กรองเฉพาะสกุลเงินที่ขอ', async () => {
     const result = await new MockBotClient().fetchSeries(BOT_SERIES.fx_average, { currency: 'EUR' });
     expect([...new Set(result.observations.map((o) => o.dimension))]).toEqual(['EUR']);
+  });
+});
+
+describe('สถานะแยกรายชุดข้อมูล', () => {
+  /** client ที่สำเร็จเฉพาะชุดที่ระบุ ชุดอื่นโยนข้อผิดพลาด */
+  function partialClient(succeedFor: BotSeriesId[]): BotApiClient {
+    return {
+      kind: 'live',
+      async fetchSeries(descriptor) {
+        if (!succeedFor.includes(descriptor.id)) {
+          throw new BotApiError(`BOT returned HTTP 400: Bad Request`, 'response', 400);
+        }
+        return {
+          observations: [{ period: '2026-08-27', dimension: descriptor.dimensions[0]!, value: 1 }],
+          lastUpdated: '2026-08-27T00:00:00.000Z',
+          unit: descriptor.unit,
+        };
+      },
+    };
+  }
+
+  it('แยกได้ว่าชุดไหนเรียกได้และชุดไหนไม่ได้', async () => {
+    // ธปท. ให้สิทธิ์แยกรายชุด อาการจริงคือบางชุดผ่านบางชุดไม่ผ่านพร้อมกัน
+    const service = new BotService({ liveClient: partialClient(['policy_rate']), liveEnabled: true });
+    await service.getSeries('policy_rate');
+    await service.getSeries('deposit_rate');
+
+    const byId = new Map(service.healthSnapshot().series.map((s) => [s.seriesId, s]));
+    expect(byId.get('policy_rate')?.ok).toBe(true);
+    expect(byId.get('policy_rate')?.lastError).toBeNull();
+    expect(byId.get('deposit_rate')?.ok).toBe(false);
+    expect(byId.get('deposit_rate')?.lastError).toContain('400');
+  });
+
+  it('รายงานทุกชุดในทะเบียน แม้ชุดที่ยังไม่เคยถูกเรียก', () => {
+    const service = new BotService({ liveClient: partialClient([]), liveEnabled: true });
+    const { series } = service.healthSnapshot();
+    expect(series).toHaveLength(listSeriesDescriptors().length);
+    expect(series.every((s) => s.ok === false && s.lastErrorAt === null)).toBe(true);
+  });
+
+  it('ชุดที่พังไม่ลบสถานะสำเร็จของตัวเอง ทำให้เห็นว่าเคยได้ข้อมูลจริงมาก่อน', async () => {
+    let fail = false;
+    const flaky: BotApiClient = {
+      kind: 'live',
+      async fetchSeries(descriptor) {
+        if (fail) throw new BotApiError('BOT returned HTTP 500', 'server', 500);
+        return {
+          observations: [{ period: '2026-08-27', dimension: descriptor.dimensions[0]!, value: 1 }],
+          lastUpdated: null,
+          unit: descriptor.unit,
+        };
+      },
+    };
+    const service = new BotService({ liveClient: flaky, liveEnabled: true });
+    await service.getSeries('policy_rate');
+    fail = true;
+    service.invalidate();
+    await service.getSeries('policy_rate');
+
+    const state = service.healthSnapshot().series.find((s) => s.seriesId === 'policy_rate');
+    expect(state?.ok).toBe(true);
+    expect(state?.lastError).toContain('500');
   });
 });

@@ -141,5 +141,23 @@ export interface HealthResponse {
     cachedSeries: number;
     /** ข้อความอธิบายเมื่อ BOT_API_BASE_URL ตั้งค่าไว้ผิด (null = ตั้งถูก) */
     baseUrlError: string | null;
+    /**
+     * สถานะแยกรายชุดข้อมูล
+     *
+     * ธปท. ให้สิทธิ์แยกรายชุด บางชุดจึงเรียกได้และบางชุดไม่ได้พร้อมกัน
+     * ค่ารวมตัวเดียวจะบอกได้แค่ชุดที่พังล่าสุด ซึ่งซ่อนว่าอีกหกชุดเป็นอย่างไร
+     */
+    series?: BotSeriesHealth[];
   };
+}
+
+/** สถานะการเรียกของชุดข้อมูลหนึ่งชุด นับตั้งแต่เซิร์ฟเวอร์เริ่มทำงาน */
+export interface BotSeriesHealth {
+  seriesId: BotSeriesId;
+  titleTh: string;
+  /** true = เคยดึงข้อมูลจริงสำเร็จอย่างน้อยหนึ่งครั้ง */
+  ok: boolean;
+  lastSuccessAt: string | null;
+  lastErrorAt: string | null;
+  lastError: string | null;
 }

@@ -8,6 +8,7 @@
 import type {
   BotMetric,
   BotSeries,
+  BotSeriesHealth,
   BotSeriesId,
   BotSummary,
   BotUnit,
@@ -20,7 +21,7 @@ import { defaultWindow, secondsBetween } from '../../util/dates.js';
 import * as botRepo from '../../db/botRepo.js';
 import { LiveBotClient } from './botClient.js';
 import { MockBotClient } from './botMockClient.js';
-import { getSeriesDescriptor } from './botSeries.js';
+import { getSeriesDescriptor, listSeriesDescriptors } from './botSeries.js';
 import type { BotApiClient, BotFetchParams, BotSeriesDescriptor } from './botTypes.js';
 import { BotApiError } from './botTypes.js';
 
@@ -53,6 +54,8 @@ export class BotService {
   private readonly liveEnabled: boolean | undefined;
   private readonly memory = new Map<string, { series: BotSeries; expiresAt: number }>();
   private health: HealthState = { lastSuccessAt: null, lastErrorAt: null, lastError: null };
+  /** สถานะแยกรายชุด — ชุดที่พังชุดเดียวไม่ควรบังสถานะของชุดที่เหลือ */
+  private readonly seriesHealth = new Map<BotSeriesId, HealthState>();
 
   constructor(options: BotServiceOptions = {}) {
     this.live = options.liveClient ?? new LiveBotClient();
@@ -83,12 +86,49 @@ export class BotService {
     return 'live';
   }
 
-  healthSnapshot(): HealthState & { apiKeyConfigured: boolean; cachedSeries: number } {
+  healthSnapshot(): HealthState & {
+    apiKeyConfigured: boolean;
+    cachedSeries: number;
+    series: BotSeriesHealth[];
+  } {
     return {
       ...this.health,
       apiKeyConfigured: hasBotApiKey(),
       cachedSeries: botRepo.cacheStats().rows,
+      series: listSeriesDescriptors().map((descriptor) => {
+        const state = this.seriesHealth.get(descriptor.id);
+        return {
+          seriesId: descriptor.id,
+          titleTh: descriptor.titleTh,
+          ok: state?.lastSuccessAt != null,
+          lastSuccessAt: state?.lastSuccessAt ?? null,
+          lastErrorAt: state?.lastErrorAt ?? null,
+          lastError: state?.lastError ?? null,
+        };
+      }),
     };
+  }
+
+  /** บันทึกผลการเรียกจริงของชุดหนึ่ง ทั้งในสถานะรวมและสถานะรายชุด */
+  private record(seriesId: BotSeriesId, error: string | null): void {
+    const now = new Date().toISOString();
+    const previous = this.seriesHealth.get(seriesId) ?? {
+      lastSuccessAt: null,
+      lastErrorAt: null,
+      lastError: null,
+    };
+
+    this.seriesHealth.set(
+      seriesId,
+      error === null
+        ? { ...previous, lastSuccessAt: now }
+        : { ...previous, lastErrorAt: now, lastError: error },
+    );
+
+    this.health =
+      error === null
+        ? { ...this.health, lastSuccessAt: now }
+        : { ...this.health, lastErrorAt: now, lastError: error };
   }
 
   invalidate(seriesId?: BotSeriesId): number {
@@ -148,19 +188,11 @@ export class BotService {
     if (this.canUseLive()) {
       try {
         const series = await this.fetchAndStore(this.live, descriptor, resolved, 'bot', cacheKey);
-        this.health = {
-          lastSuccessAt: new Date().toISOString(),
-          lastErrorAt: this.health.lastErrorAt,
-          lastError: this.health.lastError,
-        };
+        this.record(descriptor.id, null);
         return series;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        this.health = {
-          lastSuccessAt: this.health.lastSuccessAt,
-          lastErrorAt: new Date().toISOString(),
-          lastError: message,
-        };
+        this.record(descriptor.id, message);
 
         // 4) ข้อมูลจริงที่หมดอายุแล้ว ยังดีกว่าข้อมูลที่แต่งขึ้น
         if (cached) {
