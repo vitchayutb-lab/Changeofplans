@@ -6,10 +6,13 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { validateBotBaseUrl } from '../src/config/env.js';
+import { RETIRED_BOT_HOSTS, validateBotBaseUrl } from '../src/config/env.js';
 import { LiveBotClient } from '../src/services/bot/botClient.js';
 import { BOT_SERIES } from '../src/services/bot/botSeries.js';
 import { BotApiError } from '../src/services/bot/botTypes.js';
+
+/** โฮสต์กลาง ๆ สำหรับทดสอบ — ไม่ใช่เกตเวย์ของ ธปท. ที่ถูกปิดไปแล้ว */
+const NEUTRAL = 'https://gateway.example.test/bot/public';
 
 /** โหลดโมดูล env ใหม่เพื่อให้อ่านค่าที่เพิ่ง stub ไว้ */
 async function loadEnv(vars: Record<string, string>) {
@@ -26,8 +29,8 @@ afterEach(() => {
 describe('การอ่านค่าจาก environment', () => {
   it('ตัดเครื่องหมายคำพูดที่ครอบค่าออก', async () => {
     // ช่องกรอกของ Render/Fly ไม่ตัดให้เหมือน dotenv — ผู้ใช้ที่วางทั้งก้อนพร้อมคำพูดจะพัง
-    const env = await loadEnv({ BOT_API_BASE_URL: '"https://apigw1.bot.or.th/bot/public"' });
-    expect(env.botApiBaseUrl).toBe('https://apigw1.bot.or.th/bot/public');
+    const env = await loadEnv({ BOT_API_BASE_URL: `"${NEUTRAL}"` });
+    expect(env.botApiBaseUrl).toBe(NEUTRAL);
     expect(env.botApiBaseUrlError).toBeNull();
   });
 
@@ -36,10 +39,33 @@ describe('การอ่านค่าจาก environment', () => {
     expect(env.botApiKey).toBe('abc123def456');
   });
 
-  it('ใช้ค่าเริ่มต้นเมื่อตั้งเป็นค่าว่าง', async () => {
+  it('ไม่มีค่าเริ่มต้นของที่อยู่เกตเวย์ เพราะเดาแทนผู้ใช้ไม่ได้', async () => {
+    // เกตเวย์เดิมถูกปิดไปแล้ว และที่อยู่ใหม่ต่างกันตามสิทธิ์ที่แต่ละคนสมัคร
     const env = await loadEnv({ BOT_API_BASE_URL: '   ' });
-    expect(env.botApiBaseUrl).toBe('https://apigw1.bot.or.th/bot/public');
+    expect(env.botApiBaseUrl).toBe('');
+    // ค่าว่างไม่ใช่ "ตั้งผิด" แต่เป็น "ยังตั้งไม่ครบ" ซึ่งรายงานแยกกัน
     expect(env.botApiBaseUrlError).toBeNull();
+  });
+
+  it('บอกได้ว่ายังขาดอะไรถึงจะเรียกข้อมูลจริงได้', async () => {
+    vi.stubEnv('BOT_API_KEY', '');
+    vi.stubEnv('BOT_API_BASE_URL', '');
+    vi.resetModules();
+    let mod = await import('../src/config/env.js');
+    expect(mod.botConfigGap()).toContain('BOT_API_KEY');
+    expect(mod.botLiveConfigured()).toBe(false);
+
+    vi.stubEnv('BOT_API_KEY', 'key-that-looks-real-123456');
+    vi.resetModules();
+    mod = await import('../src/config/env.js');
+    expect(mod.botConfigGap()).toContain('BOT_API_BASE_URL');
+    expect(mod.botLiveConfigured()).toBe(false);
+
+    vi.stubEnv('BOT_API_BASE_URL', NEUTRAL);
+    vi.resetModules();
+    mod = await import('../src/config/env.js');
+    expect(mod.botConfigGap()).toBeNull();
+    expect(mod.botLiveConfigured()).toBe(true);
   });
 
   it('รายงานข้อผิดพลาดเมื่อ base URL ผิดรูปแบบ', async () => {
@@ -60,7 +86,7 @@ describe('โหมดของแหล่งข้อมูลเมื่อ�
 
   it('ตั้งค่าถูกต้องยังรายงานว่าใช้งานได้', async () => {
     vi.stubEnv('BOT_API_KEY', 'key-that-looks-real-123456');
-    vi.stubEnv('BOT_API_BASE_URL', 'https://apigw1.bot.or.th/bot/public');
+    vi.stubEnv('BOT_API_BASE_URL', NEUTRAL);
     vi.resetModules();
 
     const { BotService } = await import('../src/services/bot/botService.js');
@@ -70,7 +96,7 @@ describe('โหมดของแหล่งข้อมูลเมื่อ�
 
 describe('validateBotBaseUrl', () => {
   it('ยอมรับ URL ที่ถูกต้อง', () => {
-    expect(validateBotBaseUrl('https://apigw1.bot.or.th/bot/public')).toBeNull();
+    expect(validateBotBaseUrl(NEUTRAL)).toBeNull();
     expect(validateBotBaseUrl('http://localhost:9000/bot/public')).toBeNull();
   });
 
@@ -84,9 +110,18 @@ describe('validateBotBaseUrl', () => {
     expect(validateBotBaseUrl('a1b2c3d4-e5f6-7890-abcd-ef1234567890')).not.toBeNull();
   });
 
-  it('ปฏิเสธค่าว่าง', () => {
-    expect(validateBotBaseUrl('')).toBe('ค่าว่าง');
-    expect(validateBotBaseUrl('   ')).toBe('ค่าว่าง');
+  it('ค่าว่างไม่ถือว่าผิด — เป็นสถานะ "ยังไม่ได้ตั้ง" ซึ่งรายงานแยกต่างหาก', () => {
+    expect(validateBotBaseUrl('')).toBeNull();
+    expect(validateBotBaseUrl('   ')).toBeNull();
+  });
+
+  it('บอกได้ว่าชี้ไปยังเกตเวย์เดิมที่ ธปท. ปิดไปแล้ว', () => {
+    // สาเหตุจริงของอาการ "fetch failed" ที่ผู้ใช้เจอ — โฮสต์นี้ไม่มีใน DNS อีกแล้ว
+    for (const host of RETIRED_BOT_HOSTS) {
+      const message = validateBotBaseUrl(`https://${host}/bot/public`);
+      expect(message).toContain('ปิดให้บริการ');
+      expect(message).toContain('portal.api.bot.or.th');
+    }
   });
 
   it('ปฏิเสธโปรโตคอลที่ไม่รองรับ', () => {
@@ -132,21 +167,27 @@ describe('LiveBotClient.buildUrl เมื่อตั้งค่า base URL �
   });
 
   it('base URL ที่ถูกต้องยังทำงานตามเดิม', () => {
-    const url = clientWith('https://apigw1.bot.or.th/bot/public').buildUrl(
-      BOT_SERIES.policy_rate,
-      { start: '2026-06-01', end: '2026-08-30' },
-    );
+    const url = clientWith(NEUTRAL).buildUrl(BOT_SERIES.policy_rate, {
+      start: '2026-06-01',
+      end: '2026-08-30',
+    });
     expect(url).toBe(
-      'https://apigw1.bot.or.th/bot/public/PolicyRate/v3/policy_rate' +
-        '?start_period=2026-06-01&end_period=2026-08-30',
+      `${NEUTRAL}/PolicyRate/v3/policy_rate?start_period=2026-06-01&end_period=2026-08-30`,
     );
   });
 
   it('รับ base URL ที่มีเครื่องหมายทับต่อท้ายได้', () => {
-    const url = clientWith('https://apigw1.bot.or.th/bot/public///').buildUrl(
-      BOT_SERIES.policy_rate,
-      {},
-    );
+    const url = clientWith(`${NEUTRAL}///`).buildUrl(BOT_SERIES.policy_rate, {});
     expect(url).toContain('/bot/public/PolicyRate/v3/policy_rate');
+  });
+
+  it('ยังไม่ได้ตั้งที่อยู่เกตเวย์ → บอกให้ไปเอาจากพอร์ทัล ไม่ใช่ฟ้องว่าเน็ตมีปัญหา', async () => {
+    const client = clientWith('');
+    await expect(client.fetchSeries(BOT_SERIES.policy_rate, {})).rejects.toMatchObject({
+      reason: 'config',
+    });
+    await expect(client.fetchSeries(BOT_SERIES.policy_rate, {})).rejects.toThrow(
+      /BOT_API_BASE_URL/,
+    );
   });
 });

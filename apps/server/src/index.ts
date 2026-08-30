@@ -1,7 +1,7 @@
 /** จุดเริ่มต้นของเซิร์ฟเวอร์ */
 
 import { createApp } from './app.js';
-import { env, hasAnthropicKey, hasBotApiKey } from './config/env.js';
+import { botConfigGap, botLiveConfigured, env, hasAnthropicKey } from './config/env.js';
 
 // ตั้งค่าผิดแบบนี้จะทำให้เรียก BOT ไม่ได้เลย และอาการที่เห็นบนหน้าเว็บคือ "ข้อมูลจำลอง"
 // ซึ่งดูเหมือนยังไม่ได้ใส่ API key จึงต้องบอกให้ชัดตั้งแต่ตอนเริ่มระบบ
@@ -9,7 +9,6 @@ if (env.botApiBaseUrlError) {
   console.error(
     `\n⚠️  BOT_API_BASE_URL ตั้งค่าไม่ถูกต้อง: ${env.botApiBaseUrlError}\n` +
       `    ค่าที่ตั้งไว้ : ${env.botApiBaseUrl}\n` +
-      '    ค่าที่ควรเป็น : https://apigw1.bot.or.th/bot/public\n' +
       '    ระบบจะเรียก BOT API ไม่สำเร็จและแสดงข้อมูลจำลองแทนจนกว่าจะแก้\n',
   );
 }
@@ -19,11 +18,9 @@ const app = createApp();
 // ผูกกับ 0.0.0.0 เสมอเมื่อรันในคอนเทนเนอร์ มิฉะนั้น load balancer ของแพลตฟอร์ม
 // จะต่อเข้ามาไม่ได้และ deploy จะค้างที่ health check
 const server = app.listen(env.port, env.host, () => {
-  const botMode = env.botApiBaseUrlError
-    ? 'ตั้งค่า BOT_API_BASE_URL ผิด — ดูคำเตือนด้านบน'
-    : hasBotApiKey()
-      ? 'LIVE (ใช้ BOT API จริง)'
-      : 'DEMO (ไม่มี BOT_API_KEY)';
+  const botMode = botLiveConfigured()
+    ? 'LIVE (ใช้ BOT API จริง)'
+    : `DEMO — ${botConfigGap() ?? 'ยังตั้งค่าไม่ครบ'}`;
   const llmMode = hasAnthropicKey() ? 'Claude' : 'กฎในระบบ (deterministic)';
   const shown = env.host === '0.0.0.0' || env.host === '::' ? 'localhost' : env.host;
 
