@@ -6,7 +6,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { RETIRED_BOT_HOSTS, validateBotBaseUrl } from '../src/config/env.js';
+import { BOT_GATEWAY_URL, RETIRED_BOT_HOSTS, validateBotBaseUrl } from '../src/config/env.js';
 import { LiveBotClient } from '../src/services/bot/botClient.js';
 import { BOT_SERIES } from '../src/services/bot/botSeries.js';
 import { BotApiError } from '../src/services/bot/botTypes.js';
@@ -170,7 +170,9 @@ describe('LiveBotClient.buildUrl เมื่อตั้งค่า base URL �
     } catch (error) {
       const message = (error as Error).message;
       expect(message).toContain('BOT_API_BASE_URL');
-      expect(message).toContain('https://apigw1.bot.or.th/bot/public');
+      // ตัวอย่างที่แนะนำต้องเป็นเกตเวย์ที่ยังเปิดอยู่ ไม่ใช่โฮสต์เดิมที่ ธปท. ปิดไปแล้ว
+      expect(message).toContain(BOT_GATEWAY_URL);
+      for (const retired of RETIRED_BOT_HOSTS) expect(message).not.toContain(`: https://${retired}`);
       expect(message).not.toBe('Invalid URL');
     }
   });

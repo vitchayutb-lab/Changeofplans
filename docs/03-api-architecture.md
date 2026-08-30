@@ -125,8 +125,8 @@ routes/bot.ts
 
 | Concern | Implementation |
 |---|---|
-| Auth | `X-IBM-Client-Id: <BOT_API_KEY>` header, plus `Accept: application/json` |
-| Base URL | `BOT_API_BASE_URL`, default `https://apigw1.bot.or.th/bot/public` |
+| Auth | `Authorization: <BOT_API_KEY>` header (โทเคนดิบ ไม่มี `Bearer`), plus `Accept: application/json` |
+| Base URL | `BOT_API_BASE_URL`, default `https://gateway.api.bot.or.th` |
 | Timeout | `AbortController`, `BOT_TIMEOUT_MS` (default 8000) |
 | Retry | 2 retries with exponential backoff + jitter, only on 5xx / network / timeout |
 | Rate limit | On 429, honour `Retry-After`; a token-bucket limiter caps concurrent outbound calls (`BOT_MAX_RPS`, default 5) |

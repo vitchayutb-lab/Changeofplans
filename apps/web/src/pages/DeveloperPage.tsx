@@ -107,7 +107,7 @@ export function DeveloperPage() {
                       <div className="banner__title">BOT_API_BASE_URL ตั้งค่าไม่ถูกต้อง</div>
                       <div>
                         {data.bot.baseUrlError} — แก้ตัวแปรนี้ให้เป็น URL เต็ม เช่น{' '}
-                        <span className="mono">https://apigw1.bot.or.th/bot/public</span>{' '}
+                        <span className="mono">https://gateway.api.bot.or.th</span>{' '}
                         แล้วรีสตาร์ตเซิร์ฟเวอร์
                       </div>
                     </div>
