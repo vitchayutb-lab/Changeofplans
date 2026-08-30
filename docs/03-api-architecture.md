@@ -139,8 +139,9 @@ routes/bot.ts
 | Series id | BOT path | Key params |
 |---|---|---|
 | `policy_rate` | `/PolicyRate/v3/policy_rate` | start_period, end_period |
-| `lending_rate` | `/LoanRate/v2/loan_rate/` | start_period, end_period |
-| `deposit_rate` | `/DepositRate/v2/deposit_rate/` | start_period, end_period |
+| `lending_rate` | `/LoanRate/v2/loan_rate/` | start_period, end_period (สูงสุด 31 วัน) |
+| `deposit_rate` | `/DepositRate/v2/deposit_rate/` | start_period, end_period (สูงสุด 31 วัน) |
+| `spot_rate` | `/Stat-SpotRate/v2/SPOTRATE/` | start_period, end_period (สูงสุด 31 วัน) |
 | `fx_reference` | `/Stat-ReferenceRate/v2/DAILY_REF_RATE/` | start_period, end_period |
 | `fx_average` | `/Stat-ExchangeRate/v2/DAILY_AVG_EXG_RATE/` | start_period, end_period, currency |
 | `interbank_rate` | `/Stat-InterbankTransactionRate/v2/INTRBNK_TXN_RATE/` | start_period, end_period |
