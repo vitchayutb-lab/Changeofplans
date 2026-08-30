@@ -34,6 +34,7 @@ const POLICY_STEPS: { daysAgo: number; rate: number }[] = [
 /** ระดับฐานของแต่ละมิติในแต่ละชุดข้อมูล ณ อัตรานโยบาย 1.50% */
 const BASE_LEVELS: Record<string, Record<string, number>> = {
   lending_rate: { MLR: 5.85, MOR: 6.3, MRR: 6.0 },
+  loan_ceiling_rate: { ceiling: 21.5, penalty: 24.0 },
   deposit_rate: { savings: 0.45, '3m': 1.05, '6m': 1.2, '12m': 1.45, '24m': 1.75 },
   spot_rate: { USD: 34.5 },
   fx_reference: { USD: 34.5 },

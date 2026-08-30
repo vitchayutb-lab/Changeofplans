@@ -413,3 +413,38 @@ describe('แถวเปล่าที่ ธปท. ส่งมาแทน�
     expect(observations).toEqual([{ period: '2026-08-27', dimension: 'USD', value: 34.61 }]);
   });
 });
+
+describe('เพดานดอกเบี้ยและอัตราผิดนัด อ่านจาก payload จริงชุดเดียวกับดอกเบี้ยเงินกู้', () => {
+  const { observations } = normalizeSeries(BOT_SERIES.loan_ceiling_rate, LOAN_RATE_RESPONSE);
+  const at = (dimension: string) =>
+    observations.find((o) => o.period === '2026-08-03' && o.dimension === dimension)?.value;
+
+  it('เฉลี่ยเฉพาะธนาคารพาณิชย์ไทย เหมือนชุดดอกเบี้ยเงินกู้', () => {
+    expect(at('ceiling')).toBeCloseTo(20.708529, 6);
+    expect(at('penalty')).toBeCloseTo(22.857647, 6);
+  });
+
+  it('อัตราผิดนัดสูงกว่าเพดานปกติ ซึ่งสูงกว่า MLR อีกทอด', () => {
+    // เหตุผลที่ต้องแยกชุด: สเกลห่างจาก MLR ราวสามเท่า
+    const { observations: lending } = normalizeSeries(BOT_SERIES.lending_rate, LOAN_RATE_RESPONSE);
+    const mlr = lending.find((o) => o.period === '2026-08-03' && o.dimension === 'MLR')?.value;
+    expect(mlr).toBeCloseTo(7.002647, 6);
+    expect(at('ceiling')).toBeGreaterThan(mlr as number);
+    expect(at('penalty')).toBeGreaterThan(at('ceiling') as number);
+  });
+
+  it('ข้ามธนาคารที่ยังไม่ประกาศ เหมือนกัน', () => {
+    // คลิกซ์ส่งช่องว่าง ซิตี้แบงก์ส่ง 0.0000 และเป็นสาขาต่างประเทศจึงถูกกรองอยู่แล้ว
+    expect(observations.filter((o) => o.period === '2026-08-03')).toHaveLength(2);
+  });
+});
+
+describe('ชุดดอกเบี้ยเงินกู้ต้องไม่ปนเพดานเข้ามา', () => {
+  it('lending_rate ยังมีแค่ MLR/MOR/MRR', () => {
+    // การ์ด "ดอกเบี้ยเงินกู้เฉลี่ย" เฉลี่ยทุกมิติของชุดนี้ ถ้าเพดานหลุดเข้ามา
+    // ตัวเลขจะกระโดดจาก ~7% เป็น ~15% โดยไม่มีอะไรฟ้อง
+    expect(Object.keys(BOT_SERIES.lending_rate.valueFields).sort()).toEqual(['MLR', 'MOR', 'MRR']);
+    const { observations } = normalizeSeries(BOT_SERIES.lending_rate, LOAN_RATE_RESPONSE);
+    expect([...new Set(observations.map((o) => o.dimension))].sort()).toEqual(['MLR', 'MOR', 'MRR']);
+  });
+});

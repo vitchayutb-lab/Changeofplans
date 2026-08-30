@@ -284,9 +284,44 @@ const listSeries: ToolDefinition = {
   },
 };
 
+const ceilingRate: ToolDefinition = {
+  name: 'get_bot_ceiling_rate',
+  title: 'เพดานดอกเบี้ยและอัตราผิดนัดชำระ (BOT)',
+  description:
+    'ดึงเพดานอัตราดอกเบี้ยสูงสุดที่ธนาคารพาณิชย์เรียกเก็บได้ตามประกาศ และอัตราที่ใช้เมื่อผิดนัดชำระ ' +
+    'ใช้ตอบคำถามว่าถ้าจ่ายไม่ไหวต้นทุนจะขึ้นไปเท่าไร ซึ่งเป็นคนละตัวกับอัตราดอกเบี้ยที่เสนอตอนอนุมัติ',
+  category: 'bot',
+  readOnly: true,
+  schema: defineSchema<{ type: string }>({
+    type: field.enumOf('เพดานดอกเบี้ย หรืออัตราผิดนัดชำระ', ['ceiling', 'penalty'], {
+      default: 'penalty',
+    }),
+  }),
+  async handler(args: { type: string }) {
+    const wanted = String(args.type ?? 'penalty').toLowerCase() === 'ceiling' ? 'ceiling' : 'penalty';
+    const labelTh = wanted === 'ceiling' ? 'เพดานดอกเบี้ยสูงสุด' : 'อัตราดอกเบี้ยเมื่อผิดนัดชำระ';
+
+    const metric = await getBotService().getMetric({
+      seriesId: 'loan_ceiling_rate',
+      dimension: wanted,
+      key: `loan_${wanted}_rate`,
+      label: wanted === 'ceiling' ? 'Ceiling Rate' : 'Default Rate',
+      labelTh,
+    });
+
+    return {
+      data: { ...metricPayload(metric), rateType: wanted },
+      source: metric.provenance.source,
+      notice: metric.provenance.notice,
+      citation: citationFor(metric, wanted === 'ceiling' ? 'Ceiling Rate' : 'Default Rate'),
+    };
+  },
+};
+
 export const botTools: ToolDefinition[] = [
   policyRate,
   lendingRate,
+  ceilingRate,
   depositRate,
   exchangeRate,
   marketData,
