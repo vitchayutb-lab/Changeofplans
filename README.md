@@ -118,7 +118,7 @@ docker run -d -p 80:8787 -e BOT_API_KEY=xxxxx -v sme-data:/data sme-finance-copi
 ```bash
 BOT_API_KEY=<Client ID จากพอร์ทัลของคุณ>
 BOT_API_BASE_URL=https://gateway.api.bot.or.th
-BOT_API_KEY_HEADER=X-IBM-Client-Id
+BOT_API_KEY_HEADER=Authorization
 BOT_TIMEOUT_MS=8000
 BOT_MAX_RETRIES=2
 BOT_MAX_RPS=5
@@ -308,7 +308,7 @@ get_bot_economic_indicator(indicator, start, end)
 ## ชุดทดสอบ
 
 ```bash
-npm test          # 299 เทสต์ (server 282 + web 17)
+npm test          # 302 เทสต์ (server 285 + web 17)
 npm run typecheck # ตรวจชนิดข้อมูลทุก workspace
 npm run build     # สร้างของจริงทั้งหมด
 ```

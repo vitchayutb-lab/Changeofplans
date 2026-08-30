@@ -145,4 +145,25 @@ describe('normalizeSeries', () => {
       normalizeSeries(BOT_SERIES.policy_rate, envelope([{ period: '2026-08-01', unknown: '1' }])),
     ).toThrow(BotApiError);
   });
+
+  it('บอกชื่อคอลัมน์ที่ได้มาจริง เพื่อให้แก้ทะเบียนได้ตรงจุด', () => {
+    try {
+      normalizeSeries(
+        BOT_SERIES.policy_rate,
+        envelope([{ period: '2026-08-01', unexpected_column: '1.5' }]),
+      );
+      expect.unreachable('ควรโยนข้อผิดพลาด');
+    } catch (error) {
+      const message = (error as Error).message;
+      expect(message).toContain('unexpected_column');
+      expect(message).toContain('botSeries.ts');
+    }
+  });
+
+  it('data_detail ที่เป็น array ว่าง = ไม่มีข้อมูลในช่วงที่ขอ ไม่ใช่ผลลัพธ์ที่อ่านไม่ออก', () => {
+    // BOT ตอบแบบนี้เมื่อช่วงวันที่ที่ขอไม่มีวันทำการ เช่น ขอเฉพาะวันอาทิตย์
+    const result = normalizeSeries(BOT_SERIES.lending_rate, envelope([]));
+    expect(result.observations).toEqual([]);
+    expect(result.lastUpdated).not.toBeUndefined();
+  });
 });

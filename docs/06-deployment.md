@@ -180,8 +180,12 @@ image จัดการให้แล้ว: build แบบหลายขั
 
 ```bash
 BOT_API_BASE_URL=https://gateway.api.bot.or.th
-BOT_API_KEY_HEADER=X-IBM-Client-Id
+BOT_API_KEY_HEADER=Authorization
 ```
+
+เกตเวย์ใหม่ส่งคีย์ผ่าน header ชื่อ **`Authorization`** โดยใส่โทเคนดิบ **ไม่ต้องเติม `Bearer`**
+นำหน้า (ระบบเดิมที่ปิดไปแล้วใช้ `X-IBM-Client-Id`) ทั้งสองค่านี้เป็นค่าเริ่มต้นของระบบแล้ว
+จึงตั้งแค่ `BOT_API_KEY` ก็พอ
 
 > ⚠️ **ใส่เฉพาะโฮสต์ อย่าใส่ path ของ endpoint ต่อท้าย** — path ของแต่ละชุดข้อมูลอยู่ใน
 > [`botSeries.ts`](../apps/server/src/services/bot/botSeries.ts) แล้ว ถ้าวาง URL เต็ม
@@ -198,12 +202,14 @@ BOT_API_KEY_HEADER=X-IBM-Client-Id
 ยืนยันด้วยตัวเองก่อนตั้งค่าได้ด้วยคำสั่งเดียว:
 
 ```bash
-curl -i -H "X-IBM-Client-Id: <คีย์ของคุณ>" -H "accept: application/json" \
+curl -i -H "Authorization: <คีย์ของคุณ>" -H "Accept: application/json" \
   "https://gateway.api.bot.or.th/LoanRate/v2/loan_rate/?start_period=2026-08-01&end_period=2026-08-30"
 ```
 
-- ได้ JSON → base URL ถูกแล้ว
-- ได้ `401` / `403` → base URL ถูก แต่ต้องไป subscribe ชุดข้อมูลนั้น หรือชื่อ header ไม่ตรง
+- ได้ JSON ที่มี `result.data.data_detail` → ถูกหมดแล้ว
+- ได้ JSON แต่ `data_detail` เป็น `[]` → ถูกเหมือนกัน เพียงแต่ช่วงวันที่ที่ขอไม่มีวันทำการ
+  ให้ลองขยายช่วงเป็นหลายวัน
+- ได้ `401` / `403` → ต้องไป subscribe ชุดข้อมูลนั้น หรือชื่อ header ไม่ตรง
 - ได้ HTML → ยังชี้ผิดที่
 
 สิ่งที่ต้องตรวจในเอกสารของพอร์ทัลใหม่มีสามอย่าง เพราะ ธปท. แจ้งว่าทั้ง endpoint และ

@@ -195,7 +195,9 @@ export const env: AppEnv = {
   // ของพอร์ทัลซึ่งต่างกันไปตามสิทธิ์ที่แต่ละคนสมัคร การเดาให้จึงมีแต่จะพาไปผิดทาง
   botApiBaseUrl: str('BOT_API_BASE_URL'),
   botApiBaseUrlError: validateBotBaseUrl(str('BOT_API_BASE_URL')),
-  botApiKeyHeader: str('BOT_API_KEY_HEADER', 'X-IBM-Client-Id'),
+  // เกตเวย์ใหม่ใช้ header ชื่อ Authorization โดยส่งโทเคนดิบ ไม่มีคำว่า Bearer นำหน้า
+  // (ระบบเดิมที่ปิดไปแล้วใช้ X-IBM-Client-Id — ยังเปลี่ยนกลับได้ผ่านตัวแปรนี้)
+  botApiKeyHeader: str('BOT_API_KEY_HEADER', 'Authorization'),
   botTimeoutMs: num('BOT_TIMEOUT_MS', 8000),
   botMaxRetries: num('BOT_MAX_RETRIES', 2),
   botMaxRps: num('BOT_MAX_RPS', 5),

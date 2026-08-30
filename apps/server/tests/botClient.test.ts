@@ -76,6 +76,23 @@ describe('LiveBotClient.fetchSeries', () => {
     expect(headers.accept).toBe('application/json');
   });
 
+  it('ค่าเริ่มต้นส่งคีย์ผ่าน header ชื่อ Authorization ตามเกตเวย์ใหม่ของ ธปท.', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(policyPayload()));
+    // ไม่ระบุ apiKeyHeader จึงใช้ค่าเริ่มต้นจาก env
+    const instance = new LiveBotClient({
+      baseUrl: 'https://gateway.example.test',
+      apiKey: API_KEY,
+      maxRps: 0,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    await instance.fetchSeries(BOT_SERIES.policy_rate, {});
+
+    const headers = (fetchImpl.mock.calls[0]![1] as RequestInit).headers as Record<string, string>;
+    // ส่งโทเคนดิบ ไม่เติมคำว่า Bearer นำหน้า ตามที่เอกสารของพอร์ทัลระบุ
+    expect(headers.Authorization).toBe(API_KEY);
+    expect(headers.Authorization).not.toContain('Bearer');
+  });
+
   it('โยนข้อผิดพลาดชนิด auth เมื่อ BOT ตอบ 401 และไม่ลองซ้ำ', async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ message: 'unauthorized' }, { status: 401 }));
     await expect(

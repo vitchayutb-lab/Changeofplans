@@ -153,9 +153,19 @@ export function normalizeSeries(
   }
 
   if (buckets.size === 0) {
+    // BOT ตอบ 200 พร้อม data_detail ว่าง เมื่อช่วงวันที่ที่ขอไม่มีวันทำการ
+    // (เช่น ขอเฉพาะวันเสาร์อาทิตย์) — นั่นคือคำตอบที่ถูกต้อง ไม่ใช่ผลลัพธ์ที่อ่านไม่ออก
+    if (detail.length === 0) {
+      return { observations: [], lastUpdated: extractLastUpdated(payload) };
+    }
+
+    // มีแถวข้อมูลจริงแต่อ่านค่าไม่ได้ = ชื่อคอลัมน์ไม่ตรงกับที่ทะเบียนคาดไว้
+    const seenColumns = [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 20);
     throw new BotApiError(
       `BOT response for "${descriptor.id}" contained no readable values ` +
-        `(expected one of: ${Object.values(descriptor.valueFields).flat().join(', ')})`,
+        `(expected one of: ${Object.values(descriptor.valueFields).flat().join(', ')}; ` +
+        `got columns: ${seenColumns.join(', ') || 'ไม่มีคอลัมน์'}) ` +
+        '— ปรับ valueFields/nestedArrayKeys ใน botSeries.ts ให้ตรงกับผลลัพธ์จริง',
       'response',
     );
   }
