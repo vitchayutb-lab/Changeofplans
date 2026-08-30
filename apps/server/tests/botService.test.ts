@@ -451,3 +451,53 @@ describe('สถานะรวมสะท้อนเฉพาะชุดท�
     expect([...asked].sort()).toEqual([...SUMMARY_SERIES].sort());
   });
 });
+
+describe('ข้อมูลจำลองต้องไม่ถูกติดป้ายว่าเป็นข้อมูลจริงที่ค้างอยู่', () => {
+  /** ล้มเสมอ เหมือนชุดที่บัญชีไม่ได้ subscribe */
+  const alwaysFails: BotApiClient = {
+    kind: 'live',
+    async fetchSeries() {
+      throw new BotApiError('ธปท. ปฏิเสธคำขอ (HTTP 403)', 'auth', 403);
+    },
+  };
+
+  it('ชุดที่ไม่เคยดึงจริงสำเร็จเลย ยังคงเป็นข้อมูลจำลองในรอบที่สอง', async () => {
+    // อาการจริง: การ์ดขึ้นทั้ง "ข้อมูลจำลอง" และ "กำลังแสดงข้อมูลจริงที่ดึงไว้ล่าสุด"
+    // พร้อมกัน เพราะรอบแรกเก็บข้อมูลจำลองลงแคช แล้วรอบสองหยิบมาติดป้ายว่าค้าง
+    const service = new BotService({ liveClient: alwaysFails, liveEnabled: true });
+
+    const first = await service.getSeries('fx_average');
+    expect(first.provenance.source).toBe('demo');
+
+    service.invalidate();
+    const second = await service.getSeries('fx_average');
+    expect(second.provenance.source).toBe('demo');
+    expect(second.provenance.stale).toBe(false);
+    expect(second.provenance.notice).not.toMatch(/ข้อมูลจริงที่ดึงไว้ล่าสุด/);
+    expect(second.provenance.notice).toMatch(/ข้อมูลจำลอง/);
+  });
+
+  it('แคชของข้อมูลจำลองที่หมดอายุ ไม่ถูกเลื่อนขั้นเป็นข้อมูลจริงที่ค้าง', async () => {
+    // ทางถอยไปข้อมูลจริงที่ค้าง มีเทสต์คลุมอยู่แล้วด้านบน — อันนี้คือด้านตรงข้าม
+    const service = new BotService({ liveClient: alwaysFails, liveEnabled: true });
+    const params = { start: '2026-08-01', end: '2026-08-27' };
+    const demo = await service.getSeries('fx_average', params);
+    expect(demo.provenance.source).toBe('demo');
+
+    // ทำให้แคชของข้อมูลจำลองหมดอายุ แบบเดียวกับเทสต์ของข้อมูลจริง
+    botRepo.writeCache({
+      cacheKey: buildCacheKey('fx_average', params),
+      seriesId: 'fx_average',
+      series: demo,
+      source: 'demo',
+      fetchedAt: new Date(Date.now() - 7_200_000).toISOString(),
+      ttlSeconds: 1,
+    });
+
+    const rebuilt = new BotService({ liveClient: alwaysFails, liveEnabled: true });
+    const again = await rebuilt.getSeries('fx_average', params);
+    expect(again.provenance.source).toBe('demo');
+    expect(again.provenance.stale).toBe(false);
+    expect(again.provenance.notice).not.toMatch(/ข้อมูลจริงที่ดึงไว้ล่าสุด/);
+  });
+});

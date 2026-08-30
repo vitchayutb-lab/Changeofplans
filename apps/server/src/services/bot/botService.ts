@@ -215,8 +215,12 @@ export class BotService {
         const message = error instanceof Error ? error.message : String(error);
         this.record(descriptor.id, message);
 
-        // 4) ข้อมูลจริงที่หมดอายุแล้ว ยังดีกว่าข้อมูลที่แต่งขึ้น
-        if (cached) {
+        // 4) ข้อมูลจริงที่หมดอายุแล้ว ยังดีกว่าข้อมูลที่แต่งขึ้น — แต่ต้องเป็นของจริงเท่านั้น
+        //
+        // ขั้นที่ 5 เขียนผลของข้อมูลจำลองลงแคชด้วยคีย์เดียวกัน ถ้าไม่ตรวจแหล่งที่มา
+        // รอบถัดไปจะหยิบข้อมูลจำลองนั้นมาแล้วติดป้ายว่า "ข้อมูลจริงที่ดึงไว้ล่าสุด"
+        // ซึ่งขัดกับหลักของระบบที่ทุกตัวเลขต้องบอกที่มาตามจริง
+        if (cached && cached.series.provenance.source === 'bot') {
           const stale = markStale(cached.series, message, cached.fetchedAt, descriptor.ttlSeconds);
           this.memory.set(cacheKey, { series: stale, expiresAt: now.getTime() + 60_000 });
           return stale;
