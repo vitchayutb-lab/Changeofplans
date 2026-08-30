@@ -170,9 +170,15 @@ export class LiveBotClient implements BotApiClient {
         signal: controller.signal,
       });
 
+      // อ่าน body ครั้งเดียวแล้วใช้ได้ทั้งเส้นทางสำเร็จและเส้นทางผิดพลาด
+      // ข้อความที่ ธปท. ส่งมาในตัว body คือสิ่งที่บอกสาเหตุได้ดีที่สุด ทิ้งไปไม่ได้
+      const text = await response.text();
+
       if (response.status === 401 || response.status === 403) {
         throw new BotApiError(
-          `BOT rejected the API key (HTTP ${response.status})`,
+          `ธปท. ปฏิเสธคำขอ (HTTP ${response.status})${upstreamDetail(text)}` +
+            ' — ตรวจว่าคีย์ถูกต้อง ไม่มีอักขระเกินติดมา (เช่น < > หรือเครื่องหมายคำพูด)' +
+            ' และบัญชีของคุณ subscribe ชุดข้อมูลนี้ไว้แล้วในพอร์ทัล',
           'auth',
           response.status,
         );
@@ -182,16 +188,27 @@ export class LiveBotClient implements BotApiClient {
         if (Number.isFinite(retryAfter) && retryAfter > 0) {
           await sleep(Math.min(5000, retryAfter * 1000));
         }
-        throw new BotApiError('BOT rate limit reached (HTTP 429)', 'rate_limit', 429);
+        throw new BotApiError(
+          `BOT rate limit reached (HTTP 429)${upstreamDetail(text)}`,
+          'rate_limit',
+          429,
+        );
       }
       if (response.status >= 500) {
-        throw new BotApiError(`BOT server error (HTTP ${response.status})`, 'server', response.status);
+        throw new BotApiError(
+          `BOT server error (HTTP ${response.status})${upstreamDetail(text)}`,
+          'server',
+          response.status,
+        );
       }
       if (!response.ok) {
-        throw new BotApiError(`BOT returned HTTP ${response.status}`, 'response', response.status);
+        throw new BotApiError(
+          `BOT returned HTTP ${response.status}${upstreamDetail(text)}`,
+          'response',
+          response.status,
+        );
       }
 
-      const text = await response.text();
       try {
         return JSON.parse(text) as unknown;
       } catch {
@@ -209,6 +226,32 @@ export class LiveBotClient implements BotApiClient {
  * แปลง error ใด ๆ ให้เป็น BotApiError และล้างค่า secret ออกจากข้อความ
  * (error ของ fetch บางกรณีแนบ URL หรือ header กลับมาด้วย)
  */
+/**
+ * ดึงข้อความอธิบายจาก body ของคำตอบที่เป็นข้อผิดพลาด
+ *
+ * เกตเวย์ของ ธปท. ส่งเหตุผลจริงมาใน body เช่น {"error":"Access to this API has been
+ * disallowed"} ซึ่งแยกแยะได้ว่า "คีย์ผิด" หรือ "คีย์ถูกแต่ยังไม่ได้ subscribe ชุดนี้"
+ * ต่างจากสถานะ 403 เปล่า ๆ ที่บอกไม่ได้
+ */
+export function upstreamDetail(body: string): string {
+  const trimmed = body.trim();
+  if (trimmed === '') return '';
+
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    for (const key of ['error', 'message', 'moreInformation', 'httpMessage', 'description']) {
+      const value = parsed[key];
+      if (typeof value === 'string' && value.trim() !== '') {
+        return `: ${value.trim().slice(0, 200)}`;
+      }
+    }
+  } catch {
+    // ไม่ใช่ JSON — ยกข้อความดิบมาแบบสั้น ๆ
+  }
+
+  return `: ${trimmed.replace(/\s+/g, ' ').slice(0, 200)}`;
+}
+
 /**
  * อธิบายว่าปลายทางตอบอะไรกลับมาเมื่อไม่ใช่ JSON
  *

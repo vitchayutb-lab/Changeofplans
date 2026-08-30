@@ -199,18 +199,46 @@ BOT_API_KEY_HEADER=Authorization
 > | ❌ | `https://portal.api.bot.or.th` (เว็บไซต์ ไม่ใช่ API — จะได้ HTML กลับมา) |
 > | ❌ | `https://apigw1.bot.or.th/bot/public` (เกตเวย์เดิมที่ปิดไปแล้ว) |
 
-ยืนยันด้วยตัวเองก่อนตั้งค่าได้ด้วยคำสั่งเดียว:
+ยืนยันด้วยตัวเองก่อนตั้งค่าได้ด้วยคำสั่งเดียว
+
+**macOS / Linux (bash)**
 
 ```bash
-curl -i -H "Authorization: <คีย์ของคุณ>" -H "Accept: application/json" \
+BOT_KEY=วางคีย์ตรงนี้
+
+curl -i -H "Authorization: $BOT_KEY" -H "Accept: application/json" \
   "https://gateway.api.bot.or.th/LoanRate/v2/loan_rate/?start_period=2026-08-01&end_period=2026-08-30"
 ```
 
-- ได้ JSON ที่มี `result.data.data_detail` → ถูกหมดแล้ว
-- ได้ JSON แต่ `data_detail` เป็น `[]` → ถูกเหมือนกัน เพียงแต่ช่วงวันที่ที่ขอไม่มีวันทำการ
-  ให้ลองขยายช่วงเป็นหลายวัน
-- ได้ `401` / `403` → ต้องไป subscribe ชุดข้อมูลนั้น หรือชื่อ header ไม่ตรง
-- ได้ HTML → ยังชี้ผิดที่
+**Windows PowerShell**
+
+```powershell
+$BOT_KEY = "วางคีย์ตรงนี้"
+
+curl.exe -i -H "Authorization: $BOT_KEY" -H "Accept: application/json" `
+  "https://gateway.api.bot.or.th/LoanRate/v2/loan_rate/?start_period=2026-08-01&end_period=2026-08-30"
+```
+
+> ⚠️ **จุดที่พลาดกันบ่อยบน Windows**
+> - **อย่าใส่วงเล็บ `< >` ครอบคีย์** — เครื่องหมายนั้นเป็นแค่ตัวแทนในเอกสาร ถ้าใส่ไปด้วย
+>   จะกลายเป็นส่วนหนึ่งของคีย์และถูกปฏิเสธด้วย 403
+> - **ตัวคั่นบรรทัดของ PowerShell คือ backtick `` ` `` ไม่ใช่ `\`** ถ้าใช้ `\` จะได้
+>   `URL rejected: Bad hostname`
+> - ใช้ `curl.exe` ไม่ใช่ `curl` เฉย ๆ เพราะ `curl` ใน PowerShell เป็นนามแฝงของ
+>   `Invoke-WebRequest` ซึ่งรับพารามิเตอร์คนละแบบ
+
+ผลที่ได้แปลว่า:
+
+| ผลลัพธ์ | ความหมาย |
+|---|---|
+| JSON ที่มี `result.data.data_detail` | ถูกหมดแล้ว |
+| JSON แต่ `data_detail` เป็น `[]` | ถูกเหมือนกัน เพียงแต่ช่วงวันที่ที่ขอไม่มีวันทำการ ให้ขยายช่วง |
+| `403` + `"Access to this API has been disallowed"` | ต่อถึงเกตเวย์แล้ว แต่บัญชียังไม่ได้ subscribe ชุดข้อมูลนี้ — ไปที่ **Catalogues** ในพอร์ทัลแล้ว subscribe ชุดที่ต้องการ |
+| `401` | คีย์ไม่ถูกต้อง หรือมีอักขระเกินติดมา |
+| HTML | base URL ยังชี้ผิดที่ |
+
+ระบบยกข้อความในช่อง `error` ที่ ธปท. ส่งมาขึ้นแสดงบนหน้าเว็บให้ด้วย จึงแยกได้ทันที
+ว่าเป็นปัญหาคีย์หรือปัญหาการ subscribe
 
 สิ่งที่ต้องตรวจในเอกสารของพอร์ทัลใหม่มีสามอย่าง เพราะ ธปท. แจ้งว่าทั้ง endpoint และ
 วิธียืนยันตัวตนอาจเปลี่ยน:
