@@ -381,3 +381,35 @@ describe('ข้อความเมื่อไม่เหลือค่า�
     expect(message).toContain('bid_rate="-"');
   });
 });
+
+describe('แถวเปล่าที่ ธปท. ส่งมาแทนคำว่า "ไม่มีข้อมูล"', () => {
+  it('ถือว่าไม่มีข้อมูล ไม่ใช่ข้อผิดพลาด', () => {
+    // ของจริงจาก /Stat-SpotRate/v2/SPOTRATE: หนึ่งแถว ทุกช่องเป็นสตริงว่าง
+    const { observations } = normalizeSeries(
+      BOT_SERIES.spot_rate,
+      envelope([{ period: '', bid_rate: '', offer_rate: '' }]),
+    );
+    expect(observations).toEqual([]);
+  });
+
+  it('ยังดังเหมือนเดิมเมื่อแถวมีค่าอยู่จริงแต่อ่านไม่ได้', () => {
+    // ต่างกันตรงนี้: มีข้อมูลมาจริง แต่เราตีความไม่ออก = ยังเป็นบั๊กที่ต้องรู้
+    expect(() =>
+      normalizeSeries(
+        BOT_SERIES.spot_rate,
+        envelope([{ period: '2026-08-27', bid_rate: 'ไม่ใช่ตัวเลข', offer_rate: 'ไม่ใช่ตัวเลข' }]),
+      ),
+    ).toThrow(/อ่านค่าไม่ได้/);
+  });
+
+  it('แถวเปล่าปนกับแถวที่มีข้อมูล ยังอ่านแถวที่มีข้อมูลได้ตามปกติ', () => {
+    const { observations } = normalizeSeries(
+      BOT_SERIES.spot_rate,
+      envelope([
+        { period: '', bid_rate: '', offer_rate: '' },
+        { period: '2026-08-27', bid_rate: '34.58', offer_rate: '34.64' },
+      ]),
+    );
+    expect(observations).toEqual([{ period: '2026-08-27', dimension: 'USD', value: 34.61 }]);
+  });
+});

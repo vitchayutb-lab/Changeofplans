@@ -254,6 +254,13 @@ export function normalizeSeries(
       return { observations: [], lastUpdated: extractLastUpdated(payload) };
     }
 
+    // บาง endpoint บอก "ไม่มีข้อมูล" ด้วยแถวเปล่าหนึ่งแถวแทนที่จะส่ง array ว่าง
+    // ความหมายเหมือนกัน จึงไม่ควรรายงานเป็นข้อผิดพลาด
+    // (ต่างจากกรณีที่แถวมีค่าอยู่จริงแต่เราอ่านไม่ได้ ซึ่งยังต้องดังเหมือนเดิม)
+    if (rows.every(isBlankRow)) {
+      return { observations: [], lastUpdated: extractLastUpdated(payload) };
+    }
+
     // มีแถวข้อมูลจริงแต่ไม่เหลือค่าเลย — บอกให้ชัดว่าตกตรงไหน และแนบแถวจริงหนึ่งแถว
     // ชื่อคอลัมน์อย่างเดียวไม่พอเมื่อคอลัมน์ตรงแล้วแต่ค่ายังอ่านไม่ได้
     const seenColumns = [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 20);
@@ -283,6 +290,13 @@ export function normalizeSeries(
     );
 
   return { observations, lastUpdated: extractLastUpdated(payload) };
+}
+
+/** ทุกคอลัมน์ว่างหมด — เป็นแถวที่ ธปท. ใส่มาแทนคำตอบว่าไม่มีข้อมูล ไม่ใช่ข้อมูลที่อ่านไม่ออก */
+function isBlankRow(row: Row): boolean {
+  return Object.values(row).every(
+    (value) => value === null || value === undefined || String(value).trim() === '',
+  );
 }
 
 /** ตัวอย่างแถวหนึ่งแถวแบบย่อ ใช้ดูว่าค่าที่ ธปท. ส่งมาหน้าตาเป็นอย่างไรจริง ๆ */
