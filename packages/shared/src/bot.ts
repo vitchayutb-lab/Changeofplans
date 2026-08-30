@@ -130,6 +130,11 @@ export interface HealthResponse {
   bot: {
     /** บอกเพียงว่ามีการตั้งค่า key ไว้หรือไม่ — ไม่เปิดเผยค่าหรือความยาวของ key */
     apiKeyConfigured: boolean;
+    /**
+     * อักขระที่ครอบคีย์มาแล้วระบบตัดออกให้ เช่น "<>" (null = ค่าสะอาด)
+     * บอกแค่ชนิดของอักขระ ไม่เปิดเผยตัวคีย์หรือความยาว
+     */
+    apiKeyWrapper?: string | null;
     lastSuccessAt: string | null;
     lastErrorAt: string | null;
     lastError: string | null;

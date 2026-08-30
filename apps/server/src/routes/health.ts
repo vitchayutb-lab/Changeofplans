@@ -35,6 +35,7 @@ healthRouter.get(
       bot: {
         // บอกแค่ว่า "ตั้งค่าไว้หรือยัง" — ไม่เปิดเผยค่าหรือความยาวของคีย์
         apiKeyConfigured: snapshot.apiKeyConfigured,
+        apiKeyWrapper: env.botApiKeyWrapper,
         lastSuccessAt: snapshot.lastSuccessAt,
         lastErrorAt: snapshot.lastErrorAt,
         lastError: snapshot.lastError,
