@@ -1,0 +1,49 @@
+# Fly.io — https://fly.io/docs/reference/configuration/
+#
+# วิธีใช้:
+#   fly launch --no-deploy --copy-config     # สร้างแอปโดยใช้ไฟล์นี้
+#   fly volumes create data --size 1         # ดิสก์ถาวรสำหรับฐานข้อมูล SQLite
+#   fly secrets set BOT_API_KEY=xxx          # ความลับ (ไม่ใส่ก็รันใน DEMO MODE ได้)
+#   fly deploy
+
+app = "sme-finance-copilot"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  HOST = "0.0.0.0"
+  PORT = "8787"
+  SQLITE_PATH = "/data/app.db"
+  BOT_API_BASE_URL = "https://apigw1.bot.or.th/bot/public"
+
+# ฐานข้อมูล SQLite ต้องอยู่บนดิสก์ถาวร มิฉะนั้นข้อมูลจะหายทุกครั้งที่ deploy
+[[mounts]]
+  source = "data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # SQLite เขียนไฟล์เดียว จึงต้องมี instance เดียวที่เขียนได้
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 80
+    hard_limit = 120
+
+[[http_service.checks]]
+  grace_period = "20s"
+  interval = "30s"
+  method = "GET"
+  timeout = "5s"
+  path = "/api/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

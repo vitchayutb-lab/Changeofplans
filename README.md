@@ -30,6 +30,34 @@ npm run dev:web        # หน้าเว็บที่ http://localhost:5173
 
 ---
 
+## นำขึ้นเว็บจริง (ไม่ใช่ localhost)
+
+แอปนี้ต้องรันบนเซิร์ฟเวอร์ Node จริง **ใช้ static hosting ไม่ได้** เพราะ `BOT_API_KEY`
+ต้องอยู่ฝั่งเซิร์ฟเวอร์เท่านั้น (กฎ R3) ที่เก็บโค้ดจึงมีไฟล์ deploy พร้อมใช้:
+
+| ไฟล์ | ใช้กับ |
+|---|---|
+| [`Dockerfile`](Dockerfile) | ทุกที่ที่รับ Docker — Render, Railway, Fly.io, Cloud Run, VPS |
+| [`render.yaml`](render.yaml) | Render Blueprint (มีแผนฟรี กดสองครั้งจบ) |
+| [`fly.toml`](fly.toml) | Fly.io พร้อมดิสก์ถาวรสำหรับ SQLite |
+
+**วิธีที่เร็วที่สุด — Render:** เข้า [dashboard.render.com](https://dashboard.render.com)
+→ **New** → **Blueprint** → เลือก repo นี้ → **Apply** จบแล้วได้ URL สาธารณะ
+แอปจะขึ้นใน DEMO MODE ทันที จากนั้นค่อยใส่ `BOT_API_KEY` ในหน้า Environment
+เพื่อสลับไปใช้ข้อมูลจริงจาก ธปท.
+
+**Docker ที่ไหนก็ได้:**
+
+```bash
+docker build -t sme-finance-copilot .
+docker run -d -p 80:8787 -e BOT_API_KEY=xxxxx -v sme-data:/data sme-finance-copilot
+```
+
+ขั้นตอนเต็มของแต่ละแพลตฟอร์ม ตัวแปรที่ต้องตั้ง และเช็กลิสต์หลัง deploy อยู่ที่
+[`docs/06-deployment.md`](docs/06-deployment.md)
+
+---
+
 ## ความสามารถหลัก
 
 | หน้า | ทำอะไร |
@@ -53,6 +81,7 @@ npm run dev:web        # หน้าเว็บที่ http://localhost:5173
 3. [สถาปัตยกรรม API](docs/03-api-architecture.md) — endpoint ทั้งหมด รูปแบบ error และภายในของอะแดปเตอร์ BOT
 4. [สถาปัตยกรรม MCP / เครื่องมือ](docs/04-mcp-tool-architecture.md) — ทะเบียนเครื่องมือ ลูปของ agent และสะพาน MCP
 5. [โครงสร้างหน้าและคอมโพเนนต์](docs/05-page-component-structure.md) — เส้นทาง หน้า และคอมโพเนนต์ที่ใช้ร่วมกัน
+6. [การนำขึ้นเว็บจริง](docs/06-deployment.md) — แพลตฟอร์มที่ใช้ได้ ตัวแปรตอน deploy และเช็กลิสต์
 
 ---
 
@@ -255,9 +284,14 @@ get_bot_economic_indicator(indicator, start, end)
 | `ANTHROPIC_API_KEY` | *(ว่าง)* | **ความลับ** — ให้ Claude เรียบเรียงคำตอบ; ว่าง = ใช้กฎในระบบ |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-5` | โมเดลที่ใช้ |
 | `ADVISOR_MAX_STEPS` | `8` | เพดานจำนวนรอบของลูป agent |
-| `PORT` | `8787` | พอร์ตของ API |
-| `SQLITE_PATH` | `apps/server/data/app.db` | ที่เก็บฐานข้อมูล |
-| `CORS_ORIGIN` | `http://localhost:5173` | origin ที่อนุญาต (คั่นด้วยจุลภาคได้) |
+| `PORT` | `8787` | พอร์ตของ API (แพลตฟอร์ม deploy มักกำหนดให้เอง) |
+| `HOST` | `0.0.0.0` | ที่อยู่ที่ผูก — ต้องเป็น `0.0.0.0` ในคอนเทนเนอร์ |
+| `SQLITE_PATH` | `apps/server/data/app.db` | ที่เก็บฐานข้อมูล; ชี้ไป volume เช่น `/data/app.db` ตอน deploy |
+| `CORS_ORIGIN` | dev: `http://localhost:5173` · prod: *(ว่าง)* | origin ที่อนุญาต; ว่าง = ไม่เปิด CORS |
+| `TRUST_PROXY` | prod: `1` · dev: `0` | จำนวนชั้น reverse proxy ที่อยู่หน้า มีผลต่อการนับ IP |
+| `WEB_DIST_PATH` | *(หาเอง)* | โฟลเดอร์หน้าเว็บที่ build แล้ว |
+| `RATE_LIMIT_MAX` | `240` | คำขอต่อ IP ต่อนาทีของ `/api` ทั้งหมด (0 = ปิด) |
+| `RATE_LIMIT_EXPENSIVE_MAX` | `20` | เพดานแยกของ `/api/advisor/chat` และ `/api/tools` |
 | `MCP_API_BASE_URL` | `http://localhost:8787` | ที่อยู่ backend ที่สะพาน MCP เรียก |
 
 ---
@@ -265,7 +299,7 @@ get_bot_economic_indicator(indicator, start, end)
 ## ชุดทดสอบ
 
 ```bash
-npm test          # 189 เทสต์ (server 172 + web 17)
+npm test          # 201 เทสต์ (server 184 + web 17)
 npm run typecheck # ตรวจชนิดข้อมูลทุก workspace
 npm run build     # สร้างของจริงทั้งหมด
 ```
@@ -283,6 +317,7 @@ npm run build     # สร้างของจริงทั้งหมด
 | `agent.test.ts` | อ่าน "10 ล้านบาท" ได้ · **ไม่สับสนระหว่าง "ต้นทุนทางการเงิน" กับ "แหล่งเงินทุน"** · ตัวเลขในคำตอบตรงกับ trace · ถอยเมื่อ LLM ล้ม |
 | `api.test.ts` | ทุก endpoint · error envelope · **ยิงทุกเส้นทางเพื่อยืนยันว่า API key ไม่หลุด** |
 | `mcp.test.ts` | สะพานเห็นเครื่องมือชุดเดียวกับระบบ และ**อ่านเฉพาะตัวแปร `MCP_*`** |
+| `deployment.test.ts` | ตัวจำกัดอัตราคำขอคืน 429 · CORS ปิดตอน production · SPA deep link · ผูก `0.0.0.0` |
 | `SourceBadge.test.tsx` | ข้อมูลจำลองต้องขึ้นคำว่า `Demo Data` เสมอ ข้อมูลจริงขึ้น `Source: Bank of Thailand` |
 
 ---

@@ -1,0 +1,51 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# วิธีใช้: ไปที่ Render → New → Blueprint → เลือก repo นี้ → Apply
+# Render จะอ่านไฟล์นี้แล้วสร้างบริการให้เอง ไม่ต้องตั้งค่าอะไรด้วยมือ
+# ยกเว้น "ค่าที่เป็นความลับ" ซึ่งต้องกรอกเองในหน้า Environment (ดู sync: false ด้านล่าง)
+
+services:
+  - type: web
+    name: sme-finance-copilot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # แผนฟรีใช้ได้ทันที แต่จะพักเครื่องเมื่อไม่มีคนเข้าและไม่มีดิสก์ถาวร
+    # ถ้าต้องการให้ข้อมูลอยู่ข้ามการ deploy ให้เปลี่ยนเป็น starter แล้วเปิดบล็อก disk ด้านล่าง
+    plan: free
+    region: singapore
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      # Render กำหนดพอร์ตให้เองผ่านตัวแปร PORT — ไม่ต้องตั้งเอง
+
+      # เก็บฐานข้อมูลไว้ในคอนเทนเนอร์ (หายเมื่อ deploy ใหม่ แต่ระบบจะใส่ข้อมูลตั้งต้นให้เองทุกครั้ง)
+      # ถ้าเปิด disk ด้านล่างแล้ว ให้เปลี่ยนค่านี้เป็น /data/app.db
+      - key: SQLITE_PATH
+        value: /tmp/app.db
+
+      # ── ความลับ: ต้องกรอกเองในหน้า Environment ของ Render ──────────────────
+      # ไม่ใส่ก็รันได้ ระบบจะอยู่ใน DEMO MODE และติดป้าย Demo Data ให้ทุกตัวเลข
+      - key: BOT_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # ── ค่าปรับแต่งที่แก้ได้ภายหลัง ────────────────────────────────────────
+      - key: BOT_API_BASE_URL
+        value: https://apigw1.bot.or.th/bot/public
+      - key: BOT_TIMEOUT_MS
+        value: "8000"
+      - key: RATE_LIMIT_MAX
+        value: "240"
+      - key: RATE_LIMIT_EXPENSIVE_MAX
+        value: "20"
+
+    # ── เปิดบล็อกนี้เมื่อใช้แผน starter ขึ้นไป เพื่อให้ประวัติแชตและแคชอยู่ถาวร ──
+    # disk:
+    #   name: data
+    #   mountPath: /data
+    #   sizeGB: 1

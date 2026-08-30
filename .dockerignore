@@ -1,0 +1,35 @@
+# ไฟล์ที่ไม่ควรเข้าไปอยู่ใน build context
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.github
+coverage
+**/coverage
+*.tsbuildinfo
+
+# ห้ามหลุดเข้า image เด็ดขาด
+.env
+.env.*
+!.env.example
+apps/server/data
+*.db
+*.db-shm
+*.db-wal
+
+# แอปเดิม (Python/Streamlit) ไม่เกี่ยวกับ image นี้
+app.py
+core
+ui
+tests
+.streamlit
+requirements.txt
+pytest.ini
+__pycache__
+**/__pycache__
+venv
+.venv
+
+.devcontainer
+.DS_Store

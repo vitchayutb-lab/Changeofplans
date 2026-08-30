@@ -52,8 +52,24 @@ export interface AppEnv {
   isProduction: boolean;
   isTest: boolean;
   port: number;
+  /** ที่อยู่ที่เซิร์ฟเวอร์ผูก — ต้องเป็น 0.0.0.0 เมื่อรันในคอนเทนเนอร์ */
+  host: string;
+  /**
+   * origin ที่อนุญาตให้เรียกข้ามโดเมน
+   * ค่าว่าง = ไม่เปิด CORS เลย (หน้าเว็บถูกเสิร์ฟจากโดเมนเดียวกันอยู่แล้วตอน production)
+   */
   corsOrigin: string;
+  /** จำนวนชั้นของ reverse proxy ที่อยู่หน้าเซิร์ฟเวอร์ (Render/Fly/Cloud Run = 1) */
+  trustProxy: number;
   sqlitePath: string;
+  /** โฟลเดอร์ของหน้าเว็บที่ build แล้ว (ตั้งเองได้เมื่อ layout ต่างจากที่ repo ใช้) */
+  webDistPath: string;
+
+  /** จำกัดจำนวนคำขอต่อ IP ในหนึ่งช่วงเวลา — จำเป็นเมื่อเปิดให้เข้าถึงสาธารณะ */
+  rateLimitWindowMs: number;
+  rateLimitMax: number;
+  /** เพดานแยกสำหรับเส้นทางที่แพง (ที่ปรึกษา AI และการเรียกเครื่องมือ) */
+  rateLimitExpensiveMax: number;
 
   /** ความลับ — ห้ามส่งออกนอกเซิร์ฟเวอร์ */
   botApiKey: string;
@@ -80,8 +96,17 @@ export const env: AppEnv = {
   isProduction: nodeEnv === 'production',
   isTest: nodeEnv === 'test',
   port: num('PORT', 8787),
-  corsOrigin: str('CORS_ORIGIN', 'http://localhost:5173'),
+  host: str('HOST', '0.0.0.0'),
+  // ตอนพัฒนา หน้าเว็บอยู่คนละพอร์ตจึงต้องเปิด CORS; ตอน production เสิร์ฟจากโดเมนเดียวกัน
+  // จึงไม่ต้องเปิด เว้นแต่ผู้ใช้ตั้ง CORS_ORIGIN เอง
+  corsOrigin: str('CORS_ORIGIN', nodeEnv === 'production' ? '' : 'http://localhost:5173'),
+  trustProxy: num('TRUST_PROXY', nodeEnv === 'production' ? 1 : 0),
   sqlitePath: str('SQLITE_PATH', resolve(repoRoot, 'apps/server/data/app.db')),
+  webDistPath: str('WEB_DIST_PATH'),
+
+  rateLimitWindowMs: num('RATE_LIMIT_WINDOW_MS', 60_000),
+  rateLimitMax: num('RATE_LIMIT_MAX', 240),
+  rateLimitExpensiveMax: num('RATE_LIMIT_EXPENSIVE_MAX', 20),
 
   botApiKey: str('BOT_API_KEY'),
   botApiBaseUrl: str('BOT_API_BASE_URL', 'https://apigw1.bot.or.th/bot/public'),
