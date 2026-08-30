@@ -24,6 +24,9 @@ import type {
   HealthResponse,
   LoanSimulation,
   Sme,
+  SmeSearchResult,
+  StartupAssessment,
+  StartupProfile,
   ToolDescriptor,
 } from '@sme/shared';
 
@@ -106,7 +109,14 @@ export const api = {
   },
 
   smes: {
-    list: () => request<{ smes: Sme[] }>('/smes'),
+    /** ค้นหากิจการ — ฐานข้อมูลมีหลักพันราย จึงกรองและแบ่งหน้าที่เซิร์ฟเวอร์ */
+    search: (params: {
+      q?: string;
+      industry?: string;
+      province?: string;
+      limit?: number;
+      offset?: number;
+    } = {}) => request<SmeSearchResult>(`/smes${query(params)}`),
     detail: (id: string) => request<{ sme: Sme; loans: unknown[] }>(`/smes/${id}`),
     statements: (id: string) =>
       request<{ statements: FinancialStatement[]; history: unknown[] }>(`/smes/${id}/statements`),
@@ -137,6 +147,11 @@ export const api = {
       status: string;
       note?: string;
     }) => post<{ application: FundingApplication }>('/funding/applications', payload),
+  },
+
+  startup: {
+    example: () => request<{ profile: StartupProfile }>('/startup/example'),
+    assess: (profile: StartupProfile) => post<StartupAssessment>('/startup/assess', profile),
   },
 
   advisor: {

@@ -9,7 +9,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { env } from './config/env.js';
 import { getDb } from './db/index.js';
-import { seedDatabase } from './db/seed.js';
+import { seedDatabase, type SeedOptions } from './db/seed.js';
 import { errorHandler } from './middleware/errors.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/security.js';
@@ -18,11 +18,14 @@ import { botRouter } from './routes/bot.js';
 import { fundingRouter } from './routes/funding.js';
 import { healthRouter } from './routes/health.js';
 import { smeRouter } from './routes/sme.js';
+import { startupRouter } from './routes/startup.js';
 import { toolsRouter } from './routes/tools.js';
 
 export interface CreateAppOptions {
   /** ใส่ข้อมูลตั้งต้นให้อัตโนมัติเมื่อฐานข้อมูลยังว่าง */
   seed?: boolean;
+  /** ตัวเลือกของข้อมูลตั้งต้น (เช่น ปิดชุดกิจการขนาดใหญ่ในเทสต์) */
+  seedOptions?: SeedOptions;
   /** เสิร์ฟไฟล์หน้าเว็บที่ build แล้ว (ใช้ตอน production) */
   serveStatic?: boolean;
   /** ปิดตัวจำกัดอัตราคำขอ (ใช้ในเทสต์) */
@@ -54,7 +57,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   const app = express();
 
   if (options.seed ?? true) {
-    seedDatabase(getDb());
+    seedDatabase(getDb(), options.seedOptions ?? {});
   }
 
   app.disable('x-powered-by');
@@ -87,6 +90,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
       bucket: 'expensive',
     });
     app.use('/api/advisor/chat', expensive);
+    app.use('/api/startup/assess', expensive);
     app.use('/api/tools', expensive);
   }
 
@@ -94,6 +98,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use('/api/bot', botRouter);
   app.use('/api/smes', smeRouter);
   app.use('/api/funding', fundingRouter);
+  app.use('/api/startup', startupRouter);
   app.use('/api/advisor', advisorRouter);
   app.use('/api/tools', toolsRouter);
 

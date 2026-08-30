@@ -1,17 +1,18 @@
 /** สถานะร่วมของทั้งแอป: กิจการที่เลือก และสถานะของแหล่งข้อมูล */
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { HealthResponse, Sme } from '@sme/shared';
+import type { HealthResponse, SmeSummary } from '@sme/shared';
 import { api } from './api/client';
 
 const STORAGE_KEY = 'sme-finance-copilot:selected-sme';
 const HEALTH_INTERVAL_MS = 60_000;
 
 interface AppState {
-  smes: Sme[];
+  /** จำนวนกิจการทั้งหมดในระบบ */
+  totalSmes: number;
   selectedSmeId: string | null;
-  selectedSme: Sme | null;
-  selectSme: (id: string) => void;
+  selectedSme: SmeSummary | null;
+  selectSme: (sme: SmeSummary | string) => void;
   health: HealthResponse | null;
   refreshHealth: () => void;
   loading: boolean;
@@ -21,24 +22,43 @@ interface AppState {
 const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [smes, setSmes] = useState<Sme[]>([]);
+  const [totalSmes, setTotalSmes] = useState(0);
+  const [selectedSme, setSelectedSme] = useState<SmeSummary | null>(null);
   const [selectedSmeId, setSelectedSmeId] = useState<string | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [healthNonce, setHealthNonce] = useState(0);
 
+  // โหลดเฉพาะกิจการที่เคยเลือกไว้ (หรือรายแรก) ไม่ดึงทั้งหมดมาที่เบราว์เซอร์
   useEffect(() => {
     let cancelled = false;
-    api.smes
-      .list()
-      .then(({ smes: list }) => {
-        if (cancelled) return;
-        setSmes(list);
-        const stored = readStored();
-        const initial = list.find((s) => s.id === stored)?.id ?? list[0]?.id ?? null;
-        setSelectedSmeId(initial);
-        setError(null);
+    const stored = readStored();
+
+    const load = async (): Promise<void> => {
+      const first = await api.smes.search({ limit: 1 });
+      if (cancelled) return;
+      setTotalSmes(first.total);
+
+      if (stored) {
+        const match = await api.smes.search({ q: stored, limit: 5 });
+        const found = match.smes.find((sme) => sme.id === stored);
+        if (!cancelled && found) {
+          setSelectedSme(found);
+          setSelectedSmeId(found.id);
+          return;
+        }
+      }
+      if (!cancelled) {
+        const fallback = first.smes[0] ?? null;
+        setSelectedSme(fallback);
+        setSelectedSmeId(fallback?.id ?? null);
+      }
+    };
+
+    load()
+      .then(() => {
+        if (!cancelled) setError(null);
       })
       .catch((caught: unknown) => {
         if (!cancelled) setError(caught instanceof Error ? caught.message : String(caught));
@@ -46,6 +66,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
@@ -73,11 +94,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppState>(
     () => ({
-      smes,
+      totalSmes,
       selectedSmeId,
-      selectedSme: smes.find((s) => s.id === selectedSmeId) ?? null,
-      selectSme: (id: string) => {
+      selectedSme,
+      selectSme: (sme: SmeSummary | string) => {
+        const id = typeof sme === 'string' ? sme : sme.id;
         setSelectedSmeId(id);
+        if (typeof sme !== 'string') setSelectedSme(sme);
         writeStored(id);
       },
       health,
@@ -85,7 +108,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       loading,
       error,
     }),
-    [smes, selectedSmeId, health, loading, error],
+    [totalSmes, selectedSme, selectedSmeId, health, loading, error],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

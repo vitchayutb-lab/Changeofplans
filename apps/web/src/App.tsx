@@ -3,12 +3,14 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import type { SourceMode } from '@sme/shared';
 import { useApp } from './context';
+import { SmePicker } from './components/SmePicker';
 
 const NAV = [
   { to: '/', label: 'ภาพรวม', icon: '📊', end: true },
   { to: '/market', label: 'ข้อมูลตลาด ธปท.', icon: '🏦' },
   { to: '/financials', label: 'งบการเงิน', icon: '📒' },
   { to: '/loans', label: 'จำลองสินเชื่อ', icon: '🧮' },
+  { to: '/startup', label: 'ธุรกิจเริ่มต้น', icon: '🚀' },
   { to: '/funding', label: 'แหล่งเงินทุน', icon: '🎯' },
   { to: '/advisor', label: 'ที่ปรึกษา AI', icon: '💬' },
   { to: '/developer', label: 'เครื่องมือ / MCP', icon: '🛠️' },
@@ -21,7 +23,7 @@ const MODE_LABEL: Record<SourceMode, string> = {
 };
 
 export function App() {
-  const { smes, selectedSmeId, selectSme, health, error } = useApp();
+  const { totalSmes, selectedSme, selectSme, health, error } = useApp();
 
   const botMode = health?.modes.bot ?? 'demo';
   const llmMode = health?.modes.llm ?? 'demo';
@@ -62,22 +64,9 @@ export function App() {
 
       <div className="main">
         <header className="topbar">
-          <label className="field" style={{ minWidth: 280 }}>
-            <span className="field__label">กิจการที่กำลังดู</span>
-            <select
-              value={selectedSmeId ?? ''}
-              onChange={(event) => selectSme(event.target.value)}
-              disabled={smes.length === 0}
-            >
-              {smes.length === 0 && <option value="">— ยังไม่มีข้อมูลกิจการ —</option>}
-              {smes.map((sme) => (
-                <option key={sme.id} value={sme.id}>
-                  {sme.nameTh}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SmePicker selected={selectedSme} total={totalSmes} onSelect={selectSme} />
           <div className="topbar__spacer" />
+          <span className="tiny muted">{totalSmes.toLocaleString('en-US')} กิจการในระบบ</span>
           {health && (
             <span className="tiny muted">
               เวอร์ชัน {health.version} · ฐานข้อมูล{' '}

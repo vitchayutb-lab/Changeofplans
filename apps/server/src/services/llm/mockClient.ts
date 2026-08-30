@@ -8,7 +8,16 @@
 
 import type { LlmClient, LlmRequest, LlmToolCall, LlmTurn } from './llmTypes.js';
 
-export type Intent = 'borrow' | 'rates' | 'fx' | 'funding' | 'health' | 'debt' | 'runway' | 'general';
+export type Intent =
+  | 'startup'
+  | 'borrow'
+  | 'rates'
+  | 'fx'
+  | 'funding'
+  | 'health'
+  | 'debt'
+  | 'runway'
+  | 'general';
 
 export interface ParsedQuestion {
   intent: Intent;
@@ -91,6 +100,20 @@ export function parseCurrency(text: string): string | null {
  * และคำถามที่พูดถึงทั้งดอกเบี้ยและการกู้ ควรถูกจัดเป็นคำถามเรื่องการกู้
  */
 const KEYWORDS: Record<Intent, RegExp[]> = {
+  startup: [
+    /เพิ่งเปิด/,
+    /เพิ่งเริ่ม/,
+    /ธุรกิจใหม่/,
+    /กิจการใหม่/,
+    /หน้าใหม่/,
+    /เริ่มต้นธุรกิจ/,
+    /กำลังจะเปิด/,
+    /ยังไม่มีงบ/,
+    /ยังไม่มีประวัติ/,
+    /สตาร์ทอัพ/,
+    /startup/i,
+    /new business/i,
+  ],
   borrow: [/กู้/, /ยืมเงิน/, /สินเชื่อ/, /วงเงิน/, /ผ่อน/, /ต้นทุนทางการเงิน/, /borrow/i, /\bloan\b/i, /financing cost/i],
   funding: [/แหล่งเงินทุน/, /เงินทุนสนับสนุน/, /เงินให้เปล่า/, /เงินอุดหนุน/, /ค้ำประกัน/, /ทุนสนับสนุน/, /โครงการรัฐ/, /\bgrant\b/i, /funding/i, /subsid/i],
   fx: [/อัตราแลกเปลี่ยน/, /ค่าเงิน/, /ดอลลาร์/, /บาทแข็ง/, /บาทอ่อน/, /ส่งออก/, /นำเข้า/, /exchange rate/i, /\bfx\b/i, /currenc/i],
@@ -103,6 +126,7 @@ const KEYWORDS: Record<Intent, RegExp[]> = {
 
 /** เมื่อคะแนนเท่ากัน เจตนาที่อยู่ก่อนในรายการนี้ชนะ */
 const INTENT_PRIORITY: Intent[] = [
+  'startup',
   'borrow',
   'funding',
   'fx',
@@ -148,6 +172,19 @@ export function planFor(question: ParsedQuestion): { name: string; arguments: Re
   const years = question.years ?? 5;
 
   switch (question.intent) {
+    case 'startup':
+      return [
+        { name: 'get_bot_lending_rate', arguments: { type: 'MRR' } },
+        {
+          name: 'assess_startup_loan_readiness',
+          arguments: {
+            requestedAmount: amount,
+            requestedYears: years,
+            // ไม่มีตัวเลขของกิจการจริงในคำถาม จึงประเมินด้วยค่าตั้งต้นแล้วบอกผู้ใช้ให้กรอกเพิ่ม
+            purpose: 'working_capital',
+          },
+        },
+      ];
     case 'borrow':
       return [
         { name: 'get_bot_policy_rate', arguments: {} },
@@ -293,6 +330,7 @@ const TOOL_LABELS: Record<string, string> = {
   project_cash_runway: 'การประมาณระยะเวลาที่เงินสดพอใช้',
   convert_currency: 'การแปลงสกุลเงินด้วยอัตราของ ธปท.',
   assess_fx_exposure: 'การประเมินความเสี่ยงอัตราแลกเปลี่ยน',
+  assess_startup_loan_readiness: 'การประเมินความพร้อมกู้ของกิจการใหม่ (อ้างอิงอัตราจาก ธปท.)',
   match_funding_programs: 'ฐานข้อมูลแหล่งเงินทุนในระบบ',
   search_funding_programs: 'ฐานข้อมูลแหล่งเงินทุนในระบบ',
   get_funding_program: 'ฐานข้อมูลแหล่งเงินทุนในระบบ',
@@ -317,6 +355,9 @@ export function narrate(question: ParsedQuestion, results: Map<string, any>): st
   const sections: string[] = [];
 
   switch (question.intent) {
+    case 'startup':
+      sections.push(...startupNarrative(question, results));
+      break;
     case 'borrow':
       sections.push(...borrowNarrative(question, results));
       break;
@@ -348,6 +389,84 @@ export function narrate(question: ParsedQuestion, results: Map<string, any>): st
   }
 
   return sections.filter((section) => section.trim() !== '').join('\n\n');
+}
+
+function startupNarrative(question: ParsedQuestion, r: Map<string, any>): string[] {
+  const assessment = r.get('assess_startup_loan_readiness');
+  const out: string[] = [];
+
+  if (!assessment || assessment.__error) {
+    return [
+      'ยังประเมินให้ไม่ได้เพราะข้อมูลไม่พอ — เปิดหน้า **ธุรกิจเริ่มต้น** ในเมนูด้านซ้าย ' +
+        'แล้วกรอกเงินทุน รายได้ต่อเดือน ค่าใช้จ่าย ภาระหนี้เดิม และวงเงินที่ต้องการ ' +
+        'ระบบจะคำนวณให้ว่าธนาคารน่าจะให้กู้หรือไม่ พร้อมบอกว่าติดตรงไหน',
+    ];
+  }
+
+  const verdict = assessment.willBankLend ?? {};
+  out.push('## ธนาคารจะให้กู้ไหม');
+  out.push(
+    `คะแนนความพร้อม **${verdict.score}/100** — ${verdict.likelihoodTh}` +
+      (verdict.blockers?.length
+        ? `\n\n**ติดตรงนี้ก่อน:**\n${verdict.blockers.map((b: string) => `- ${b}`).join('\n')}`
+        : ''),
+  );
+
+  const m = assessment.metrics ?? {};
+  out.push('## ตัวเลขที่ธนาคารจะดู');
+  out.push(
+    [
+      `- กำไรต่อเดือน: **${baht(m.monthlyProfit)}**`,
+      `- อัตราดอกเบี้ยที่ประเมิน: **${pct(m.estimatedRatePct)}** ` +
+        `(${m.referenceRateName} ${pct(m.referenceRatePct)} + ส่วนต่างความเสี่ยง ${pct(m.riskSpreadPct)})`,
+      `- ค่างวดใหม่: **${baht(m.newMonthlyPayment)}** ต่อเดือน · รวมหนี้เดิมเป็น ${baht(m.totalMonthlyDebtService)}`,
+      `- DSCR: **${times(m.dscr)}** · ภาระหนี้ต่อรายได้: **${pct(m.dsrPercent, 1)}**`,
+      `- ส่วนร่วมของเจ้าของ: **${pct(m.ownerEquitySharePercent, 1)}**`,
+      assessment.affordableAmount
+        ? `- วงเงินที่กระแสเงินสดรองรับได้จริง: **${baht(assessment.affordableAmount)}**`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  );
+
+  if (assessment.whatToBorrow?.length) {
+    out.push(
+      '## ควรกู้แบบไหน\n' +
+        assessment.whatToBorrow
+          .map((item: any) => `- **${item.titleTh}** — ${item.whyTh}`)
+          .join('\n'),
+    );
+  }
+
+  if (assessment.whereToApply?.length) {
+    out.push(
+      '## ควรไปที่ไหน\n' +
+        assessment.whereToApply
+          .map((item: any, index: number) => {
+            const status = item.eligible
+              ? '✅ ผ่านเงื่อนไข'
+              : `❌ ติด: ${(item.blockedBy ?? []).join(', ')}`;
+            const cost = item.estimatedRatePct
+              ? ` · ดอกเบี้ยประมาณ ${pct(item.estimatedRatePct)} ค่างวด ${baht(item.monthlyPayment)}/เดือน`
+              : '';
+            return `${index + 1}. **${item.program}** (${item.provider}) — ${status}${cost}`;
+          })
+          .join('\n'),
+    );
+  }
+
+  if (assessment.actions?.length) {
+    out.push(
+      '## ทำอะไรได้บ้างเพื่อเพิ่มโอกาส\n' +
+        assessment.actions
+          .map((action: any) => `- **${action.title}** — ${action.detail} (${action.impact})`)
+          .join('\n'),
+    );
+  }
+
+  out.push(sourcesSection(r));
+  return out;
 }
 
 function borrowNarrative(question: ParsedQuestion, r: Map<string, any>): string[] {

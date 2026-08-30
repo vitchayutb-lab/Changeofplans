@@ -6,6 +6,7 @@ import { BotApiError } from '../services/bot/botTypes.js';
 import { NotFoundError } from '../services/finance/analysis.js';
 import { ToolNotFoundError, ValidationError } from '../agent/registry.js';
 import { LlmError } from '../services/llm/llmTypes.js';
+import { ProfileValidationError } from '../services/startup/parseProfile.js';
 
 export class HttpError extends Error {
   constructor(
@@ -63,7 +64,7 @@ function classify(error: unknown): {
       ...(error.detail ? { detail: error.detail } : {}),
     };
   }
-  if (error instanceof ValidationError) {
+  if (error instanceof ValidationError || error instanceof ProfileValidationError) {
     return { status: 400, code: 'VALIDATION_ERROR', message: error.message };
   }
   if (error instanceof ToolNotFoundError) {

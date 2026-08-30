@@ -2,13 +2,20 @@
 
 import { Router } from 'express';
 import type { FinancialStatementInput, RateBasis, StatementPeriod } from '@sme/shared';
-import { getSme, listLoans, listSmes, listStatements, upsertStatement } from '../db/smeRepo.js';
+import {
+  getSme,
+  listLoans,
+  listStatements,
+  searchSmes,
+  smeFacets,
+  upsertStatement,
+} from '../db/smeRepo.js';
 import { analyzeSme, statementHistory } from '../services/finance/analysis.js';
 import { getDebtOverview } from '../services/finance/debt.js';
 import { simulateLoan } from '../services/finance/simulation.js';
 import { balanceCheck } from '../services/finance/statement.js';
 import { asyncRoute, badRequest, notFound } from '../middleware/errors.js';
-import { bodyNumber, bodyString, queryNumber } from '../middleware/security.js';
+import { bodyNumber, bodyString, queryNumber, queryString } from '../middleware/security.js';
 
 export const smeRouter = Router();
 
@@ -41,8 +48,28 @@ function requireSme(id: string) {
   return sme;
 }
 
-smeRouter.get('/', (_req, res) => {
-  res.json({ smes: listSmes() });
+/**
+ * ค้นหากิจการ
+ *
+ * ฐานข้อมูลมีกิจการหลักพันราย จึงต้องค้นและแบ่งหน้าที่ฝั่งเซิร์ฟเวอร์
+ * ไม่ส่งทั้งหมดไปให้เบราว์เซอร์กรองเอง
+ */
+smeRouter.get('/', (req, res) => {
+  const q = queryString(req, 'q');
+  const industry = queryString(req, 'industry');
+  const province = queryString(req, 'province');
+  const limit = queryNumber(req, 'limit');
+  const offset = queryNumber(req, 'offset');
+
+  const result = searchSmes({
+    ...(q ? { q } : {}),
+    ...(industry ? { industry } : {}),
+    ...(province ? { province } : {}),
+    ...(limit !== undefined ? { limit } : {}),
+    ...(offset !== undefined ? { offset } : {}),
+  });
+
+  res.json({ ...result, facets: smeFacets() });
 });
 
 smeRouter.get('/:id', (req, res) => {
