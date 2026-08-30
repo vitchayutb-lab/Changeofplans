@@ -31,6 +31,12 @@ export function extractDetail(payload: unknown): Row[] {
   // บาง endpoint ใส่แถวไว้ใน data ตรง ๆ โดยไม่มีชั้น data_detail คร่อม
   if (Array.isArray(result.data)) return result.data.filter(isRecord);
 
+  // PolicyRate/v3 คืนค่าปัจจุบันค่าเดียวไว้ที่ result.data โดยตรง ไม่ใช่ชุดอนุกรมเวลา
+  // วันที่มีผลอยู่ในฟิลด์พี่น้อง (effective_datetime) จึงยกทั้ง result ขึ้นมาเป็นแถวเดียว
+  if (typeof result.data === 'string' || typeof result.data === 'number') {
+    return [{ ...result, value: result.data }];
+  }
+
   // ที่เหลือคือรูปแบบที่ยังไม่รู้จัก — บอกคีย์ที่มีจริงไป ไม่งั้นต้องเดาต่ออีกรอบ
   // (ชื่อคีย์ไม่ใช่ความลับ และเป็นข้อมูลชิ้นเดียวที่ทำให้แก้ได้ในครั้งเดียว)
   throw new BotApiError(
@@ -102,6 +108,22 @@ function readNumber(row: Row, candidates: string[], zeroIsMissing = false): numb
     return parsed;
   }
   return null;
+}
+
+/** อ่านทุกคอลัมน์ที่มีอยู่จริงในแถว (ใช้กับค่าที่ประกาศเป็นช่วง min/max) */
+function readNumbers(row: Row, candidates: string[], zeroIsMissing = false): number[] {
+  const lowered = lowerKeys(row);
+  const values: number[] = [];
+
+  for (const candidate of candidates) {
+    const raw = lowered.get(candidate.toLowerCase());
+    if (raw === undefined || raw === null || raw === '') continue;
+    const parsed = typeof raw === 'number' ? raw : Number(String(raw).replace(/,/g, ''));
+    if (!Number.isFinite(parsed)) continue;
+    if (zeroIsMissing && parsed === 0) continue;
+    values.push(parsed);
+  }
+  return values;
 }
 
 function lowerKeys(row: Row): Map<string, unknown> {
@@ -201,6 +223,14 @@ export function normalizeSeries(
     }
 
     for (const [dimension, candidates] of Object.entries(descriptor.valueFields)) {
+      if (descriptor.averageValueFields) {
+        // ค่าที่ประกาศเป็นช่วง: ใส่ทั้งขอบล่างและขอบบนลงถังเดียวกัน ค่าเฉลี่ยของถัง
+        // จึงเป็นจุดกึ่งกลางของช่วง เฉลี่ยข้ามธนาคารไปพร้อมกันในขั้นตอนเดียว
+        for (const value of readNumbers(row, candidates, descriptor.treatZeroAsMissing)) {
+          addToBucket(buckets, period, dimension, value);
+        }
+        continue;
+      }
       const value = readNumber(row, candidates, descriptor.treatZeroAsMissing);
       if (value === null) continue;
       addToBucket(buckets, period, dimension, value);
