@@ -342,3 +342,42 @@ describe('รูปแบบจริงของ Stat-SpotRate/v2', () => {
     expect(observations[0]?.period).toBe('2026-08-28');
   });
 })
+
+describe('ข้อความเมื่อไม่เหลือค่าให้อ่าน', () => {
+  it('แยกได้ว่าตกเพราะวันที่ ไม่ใช่เพราะค่า', () => {
+    // อาการจริงของ spot_rate: คอลัมน์ค่าตรงแล้ว แต่ยังขึ้นว่า "อ่านค่าไม่ได้"
+    // ทำให้ไล่หาผิดจุด ทั้งที่แถวถูกทิ้งตั้งแต่ตอนอ่านวันที่
+    expect(() =>
+      normalizeSeries(
+        BOT_SERIES.spot_rate,
+        envelope([{ period: 'ไม่ใช่วันที่', bid_rate: '34.58', offer_rate: '34.64' }]),
+      ),
+    ).toThrow(/อ่านวันที่ไม่ได้ทั้ง 1 แถว/);
+  });
+
+  it('บอกว่าอ่านค่าไม่ได้ เมื่อวันที่ใช้ได้แต่ค่าไม่มี', () => {
+    expect(() =>
+      normalizeSeries(BOT_SERIES.spot_rate, envelope([{ period: '2026-08-27', bid_rate: '', offer_rate: '' }])),
+    ).toThrow(/อ่านค่าไม่ได้จาก 1 แถว/);
+  });
+
+  it('เตือนว่าค่า 0 ถูกนับเป็นไม่มีข้อมูล เมื่อชุดนั้นตั้งไว้แบบนั้น', () => {
+    expect(() =>
+      normalizeSeries(
+        BOT_SERIES.spot_rate,
+        envelope([{ period: '2026-08-27', bid_rate: '0.0000', offer_rate: '0.0000' }]),
+      ),
+    ).toThrow(/ค่า 0 ถือว่าไม่มีข้อมูล/);
+  });
+
+  it('แนบแถวจริงหนึ่งแถวมาด้วย เพื่อให้เห็นค่าที่ ธปท. ส่งมาจริง', () => {
+    let message = '';
+    try {
+      normalizeSeries(BOT_SERIES.spot_rate, envelope([{ period: '2026-08-27', bid_rate: '-', offer_rate: '-' }]));
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toContain('ตัวอย่างแถวแรก');
+    expect(message).toContain('bid_rate="-"');
+  });
+});
