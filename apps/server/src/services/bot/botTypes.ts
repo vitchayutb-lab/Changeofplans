@@ -28,6 +28,13 @@ export interface BotSeriesDescriptor {
   /** อายุแคชเป็นวินาที */
   ttlSeconds: number;
   supportsDateRange: boolean;
+  /**
+   * ความกว้างสูงสุดของช่วงวันที่ที่ endpoint นี้รับได้ (วัน)
+   *
+   * ธปท. ตอบ 400 Bad Request เมื่อขอกว้างเกิน โดย body บอกแค่ "Bad Request"
+   * ไม่ได้บอกว่าเพราะอะไร จึงต้องรู้เพดานไว้ล่วงหน้าแทนที่จะให้ผู้ใช้เจอเอง
+   */
+  maxRangeDays?: number;
   supportsCurrency: boolean;
   /** มิติที่ชุดนี้ควรมี เช่น ["MLR","MOR","MRR"] หรือ ["default"] */
   dimensions: string[];

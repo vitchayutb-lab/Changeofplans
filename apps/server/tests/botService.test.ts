@@ -7,6 +7,7 @@ import { MockBotClient, policyRateAt } from '../src/services/bot/botMockClient.j
 import { BOT_SERIES, listSeriesDescriptors } from '../src/services/bot/botSeries.js';
 import { BotApiError } from '../src/services/bot/botTypes.js';
 import type { BotApiClient, BotFetchResult } from '../src/services/bot/botTypes.js';
+import { clampRange } from '../src/util/dates.js';
 import { freshDb } from './helpers.js';
 import * as botRepo from '../src/db/botRepo.js';
 
@@ -307,3 +308,44 @@ describe('สถานะแยกรายชุดข้อมูล', () => {
     expect(state?.lastError).toContain('500');
   });
 });
+
+describe('เพดานความกว้างของช่วงวันที่', () => {
+  it('หดช่วง 90 วันให้เหลือตามเพดาน โดยยึดวันสิ้นสุดไว้', () => {
+    // ของจริง: ขอ 2026-06-01→08-30 (90 วัน) ได้ 400 · ขอ 2026-08-01→08-27 (27 วัน) ได้ 200
+    expect(clampRange({ start: '2026-06-01', end: '2026-08-30' }, 31)).toEqual({
+      start: '2026-07-30',
+      end: '2026-08-30',
+    });
+  });
+
+  it('ไม่แตะช่วงที่แคบกว่าเพดานอยู่แล้ว', () => {
+    const narrow = { start: '2026-08-01', end: '2026-08-27' };
+    expect(clampRange(narrow, 31)).toEqual(narrow);
+  });
+
+  it('ไม่แตะอะไรเลยเมื่อชุดข้อมูลไม่ได้กำหนดเพดาน', () => {
+    const wide = { start: '2026-06-01', end: '2026-08-30' };
+    expect(clampRange(wide, undefined)).toEqual(wide);
+  });
+
+  it('ส่งช่วงที่อยู่ในเพดานไปให้ ธปท. จริง สำหรับชุดที่เคยได้ 400', async () => {
+    const seen: Array<{ start?: string; end?: string }> = [];
+    const spy: BotApiClient = {
+      kind: 'live',
+      async fetchSeries(descriptor, params) {
+        seen.push({ start: params.start, end: params.end });
+        return {
+          observations: [{ period: '2026-08-27', dimension: 'MLR', value: 7 }],
+          lastUpdated: null,
+          unit: descriptor.unit,
+        };
+      },
+    };
+    const service = new BotService({ liveClient: spy, liveEnabled: true });
+    await service.getSeries('lending_rate');
+
+    const span =
+      (Date.parse(seen[0]!.end!) - Date.parse(seen[0]!.start!)) / 86_400_000;
+    expect(span).toBeLessThanOrEqual(BOT_SERIES.lending_rate.maxRangeDays!);
+  });
+})

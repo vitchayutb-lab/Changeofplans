@@ -28,7 +28,24 @@ export function extractDetail(payload: unknown): Row[] {
   if (Array.isArray(detail)) return detail.filter(isRecord);
   if (isRecord(detail)) return [detail];
 
-  throw new BotApiError('BOT response has no data_detail array', 'response');
+  // บาง endpoint ใส่แถวไว้ใน data ตรง ๆ โดยไม่มีชั้น data_detail คร่อม
+  if (Array.isArray(result.data)) return result.data.filter(isRecord);
+
+  // ที่เหลือคือรูปแบบที่ยังไม่รู้จัก — บอกคีย์ที่มีจริงไป ไม่งั้นต้องเดาต่ออีกรอบ
+  // (ชื่อคีย์ไม่ใช่ความลับ และเป็นข้อมูลชิ้นเดียวที่ทำให้แก้ได้ในครั้งเดียว)
+  throw new BotApiError(
+    `BOT response has no data_detail array — ` +
+      `คีย์ที่ได้มา: result{${keysOf(result)}}` +
+      (isRecord(result.data) ? ` · result.data{${keysOf(result.data)}}` : ''),
+    'response',
+  );
+}
+
+/** ชื่อคีย์ของอ็อบเจ็กต์ จำกัดจำนวนไว้ไม่ให้ข้อความยาวเกินอ่าน */
+function keysOf(value: Row): string {
+  const keys = Object.keys(value);
+  const shown = keys.slice(0, 12).join(', ');
+  return keys.length > 12 ? `${shown}, …(+${keys.length - 12})` : shown;
 }
 
 /** เวลาที่ BOT ระบุว่าอัปเดตข้อมูลล่าสุด (อยู่ใน data_header หรือ result.timestamp) */

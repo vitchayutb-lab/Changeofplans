@@ -16,6 +16,24 @@ export function defaultWindow(days = 90): { start: string; end: string } {
   return { start: toIsoDate(daysAgo(days, end)), end: toIsoDate(end) };
 }
 
+/**
+ * หดช่วงวันที่ให้ไม่เกินเพดานที่ endpoint รับได้ โดยยึดวันสิ้นสุดไว้
+ *
+ * เก็บวันล่าสุดไว้เสมอเพราะหน้าเว็บแสดง "ค่าปัจจุบันกับค่าก่อนหน้า" การตัดหัวออก
+ * จึงเสียแค่ประวัติที่เก่าที่สุด ไม่ใช่ตัวเลขที่ผู้ใช้กำลังดู
+ */
+export function clampRange(
+  range: { start: string; end: string },
+  maxDays?: number,
+): { start: string; end: string } {
+  if (maxDays === undefined || !isIsoDate(range.start) || !isIsoDate(range.end)) return range;
+
+  const spanDays = (Date.parse(range.end) - Date.parse(range.start)) / 86_400_000;
+  if (!Number.isFinite(spanDays) || spanDays <= maxDays) return range;
+
+  return { start: toIsoDate(daysAgo(maxDays, new Date(Date.parse(range.end)))), end: range.end };
+}
+
 export function isIsoDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
 }
