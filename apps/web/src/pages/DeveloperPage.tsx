@@ -100,6 +100,19 @@ export function DeveloperPage() {
                     <span>ชุดข้อมูลในแคช:</span> <strong>{data.bot.cachedSeries}</strong>
                   </li>
                 </ul>
+                {data.bot.baseUrlError && (
+                  <div className="banner banner--risk" style={{ marginTop: 10 }}>
+                    <span>⚠️</span>
+                    <div className="banner__body tiny">
+                      <div className="banner__title">BOT_API_BASE_URL ตั้งค่าไม่ถูกต้อง</div>
+                      <div>
+                        {data.bot.baseUrlError} — แก้ตัวแปรนี้ให้เป็น URL เต็ม เช่น{' '}
+                        <span className="mono">https://apigw1.bot.or.th/bot/public</span>{' '}
+                        แล้วรีสตาร์ตเซิร์ฟเวอร์
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {data.bot.lastError && <p className="tiny muted">{data.bot.lastError}</p>}
                 <button
                   className="btn btn--sm"

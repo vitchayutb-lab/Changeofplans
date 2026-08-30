@@ -302,7 +302,7 @@ get_bot_economic_indicator(indicator, start, end)
 ## ชุดทดสอบ
 
 ```bash
-npm test          # 267 เทสต์ (server 250 + web 17)
+npm test          # 283 เทสต์ (server 266 + web 17)
 npm run typecheck # ตรวจชนิดข้อมูลทุก workspace
 npm run build     # สร้างของจริงทั้งหมด
 ```
@@ -323,6 +323,7 @@ npm run build     # สร้างของจริงทั้งหมด
 | `deployment.test.ts` | ตัวจำกัดอัตราคำขอคืน 429 · CORS ปิดตอน production · SPA deep link · ผูก `0.0.0.0` |
 | `generateSmes.test.ts` | **งบดุลของกิจการที่สร้างขึ้นทั้ง 1,000 รายทุกปีสมดุลจริง** · ยอดสินเชื่อตรงกับหนี้ในงบ · seed เดิมได้ผลเดิม |
 | `search.test.ts` | ค้นด้วยชื่อ/จังหวัด/รหัส · กรองหลายเงื่อนไข · แบ่งหน้าไม่ซ้ำ · จำกัดขนาดหน้า |
+| `config.test.ts` | ตรวจ `BOT_API_BASE_URL` · ตัดเครื่องหมายคำพูดที่ครอบค่า · **ข้อความผิดพลาดต้องบอกชื่อตัวแปรที่ต้องแก้ ไม่ใช่แค่ "Invalid URL"** |
 | `startup.test.ts` | ส่วนต่างความเสี่ยง · วงเงินที่รองรับได้ · น้ำหนักรวม = 100 · **เงื่อนไขที่บล็อกทันทีมีผลเหนือคะแนน** · ข้อเสนอแนะมีตัวเลขจริง |
 | `SourceBadge.test.tsx` | ข้อมูลจำลองต้องขึ้นคำว่า `Demo Data` เสมอ ข้อมูลจริงขึ้น `Source: Bank of Thailand` |
 

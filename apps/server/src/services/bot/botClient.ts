@@ -6,7 +6,7 @@
  * แปลงข้อมูล และ "ล้าง" ค่า secret ออกจากข้อความ error ก่อนส่งต่อ
  */
 
-import { env, redactSecrets } from '../../config/env.js';
+import { env, redactSecrets, validateBotBaseUrl } from '../../config/env.js';
 import { normalizeSeries } from './botNormalize.js';
 import { BotApiError } from './botTypes.js';
 import type {
@@ -86,7 +86,20 @@ export class LiveBotClient implements BotApiClient {
   /** ประกอบ URL ของ endpoint — ไม่ใส่ API key ลงใน query string เด็ดขาด */
   buildUrl(descriptor: BotSeriesDescriptor, params: BotFetchParams): string {
     const path = descriptor.path.startsWith('/') ? descriptor.path : `/${descriptor.path}`;
-    const url = new URL(this.baseUrl + path);
+
+    let url: URL;
+    try {
+      url = new URL(this.baseUrl + path);
+    } catch {
+      // "Invalid URL" เปล่า ๆ ไม่บอกว่าต้องไปแก้ตรงไหน จึงต้องระบุตัวแปรและค่าที่ผิดให้ชัด
+      // (ค่านี้ไม่ใช่ความลับ — ความลับคือ API key ซึ่งไม่เคยอยู่ใน URL)
+      throw new BotApiError(
+        `ตั้งค่า BOT_API_BASE_URL ไม่ถูกต้อง: "${this.baseUrl}" — ` +
+          `${validateBotBaseUrl(this.baseUrl) ?? 'ประกอบเป็น URL ไม่ได้'} ` +
+          'ตัวอย่างที่ถูก: https://apigw1.bot.or.th/bot/public',
+        'config',
+      );
+    }
     if (descriptor.supportsDateRange) {
       if (params.start) url.searchParams.set('start_period', params.start);
       if (params.end) url.searchParams.set('end_period', params.end);

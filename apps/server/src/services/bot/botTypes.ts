@@ -67,7 +67,9 @@ export type BotErrorCause =
   | 'auth'
   | 'rate_limit'
   | 'server'
-  | 'response';
+  | 'response'
+  /** ตั้งค่าผิด เช่น BOT_API_BASE_URL ไม่ใช่ URL — ลองใหม่กี่ครั้งก็ไม่หาย */
+  | 'config';
 
 export class BotApiError extends Error {
   readonly reason: BotErrorCause;

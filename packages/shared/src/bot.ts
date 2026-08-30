@@ -134,5 +134,7 @@ export interface HealthResponse {
     lastErrorAt: string | null;
     lastError: string | null;
     cachedSeries: number;
+    /** ข้อความอธิบายเมื่อ BOT_API_BASE_URL ตั้งค่าไว้ผิด (null = ตั้งถูก) */
+    baseUrlError: string | null;
   };
 }
