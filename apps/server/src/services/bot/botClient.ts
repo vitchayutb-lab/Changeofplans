@@ -206,8 +206,11 @@ export class LiveBotClient implements BotApiClient {
         );
       }
       if (!response.ok) {
+        // 400 มักแปลว่า path หรือพารามิเตอร์ไม่ตรงกับที่ ธปท. รับ และ ธปท. มักตอบแค่
+        // "Bad Request" เฉย ๆ คำขอที่ส่งไปจึงเป็นข้อมูลชิ้นเดียวที่ใช้หาสาเหตุได้
+        // (URL ไม่มีความลับ — คีย์เดินทางใน header เสมอ)
         throw new BotApiError(
-          `BOT returned HTTP ${response.status}${upstreamDetail(text)}`,
+          `BOT returned HTTP ${response.status}${upstreamDetail(text)} — URL ที่เรียก: ${url}`,
           'response',
           response.status,
         );
