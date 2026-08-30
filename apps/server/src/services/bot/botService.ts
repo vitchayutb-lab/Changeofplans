@@ -1,0 +1,425 @@
+/**
+ * ชั้นบริการข้อมูล BOT: แคช → เรียก API จริง → ถอยไปข้อมูลเก่า → ถอยไปข้อมูลจำลอง
+ *
+ * โมดูลอื่นในระบบ (route, tool, ที่ปรึกษา AI) ใช้เฉพาะไฟล์นี้ ไม่เรียก client ตรง ๆ
+ * เพื่อให้กติกาเรื่อง "ติดป้ายที่มาเสมอ" และ "ไม่ล่มทั้งระบบเมื่อ BOT ล่ม" อยู่ที่เดียว
+ */
+
+import type {
+  BotMetric,
+  BotSeries,
+  BotSeriesId,
+  BotSummary,
+  BotUnit,
+  DataSource,
+  Provenance,
+  SourceMode,
+} from '@sme/shared';
+import { env, hasBotApiKey } from '../../config/env.js';
+import { defaultWindow, secondsBetween } from '../../util/dates.js';
+import * as botRepo from '../../db/botRepo.js';
+import { LiveBotClient } from './botClient.js';
+import { MockBotClient } from './botMockClient.js';
+import { getSeriesDescriptor } from './botSeries.js';
+import type { BotApiClient, BotFetchParams, BotSeriesDescriptor } from './botTypes.js';
+import { BotApiError } from './botTypes.js';
+
+const SOURCE_LABEL_BOT = 'Bank of Thailand';
+const SOURCE_LABEL_DEMO = 'Demo Data';
+const NOTICE_UNAVAILABLE = 'BOT data temporarily unavailable.';
+
+export interface BotServiceOptions {
+  liveClient?: BotApiClient;
+  mockClient?: BotApiClient;
+  /** บังคับใช้ข้อมูลจำลอง (ใช้ในเทสต์) */
+  forceDemo?: boolean;
+  /**
+   * ระบุเองว่าอนุญาตให้เรียก BOT API จริงหรือไม่
+   * ปกติจะดูจากว่ามี BOT_API_KEY หรือเปล่า — ตัวเลือกนี้มีไว้ให้เทสต์กำหนดได้ตรง ๆ
+   */
+  liveEnabled?: boolean;
+}
+
+interface HealthState {
+  lastSuccessAt: string | null;
+  lastErrorAt: string | null;
+  lastError: string | null;
+}
+
+export class BotService {
+  private readonly live: BotApiClient;
+  private readonly mock: BotApiClient;
+  private readonly forceDemo: boolean;
+  private readonly liveEnabled: boolean | undefined;
+  private readonly memory = new Map<string, { series: BotSeries; expiresAt: number }>();
+  private health: HealthState = { lastSuccessAt: null, lastErrorAt: null, lastError: null };
+
+  constructor(options: BotServiceOptions = {}) {
+    this.live = options.liveClient ?? new LiveBotClient();
+    this.mock = options.mockClient ?? new MockBotClient();
+    this.forceDemo = options.forceDemo ?? false;
+    this.liveEnabled = options.liveEnabled;
+  }
+
+  /** มี API key และไม่ได้ถูกบังคับให้ใช้ข้อมูลจำลอง */
+  private canUseLive(): boolean {
+    if (this.forceDemo) return false;
+    return this.liveEnabled ?? hasBotApiKey();
+  }
+
+  /** โหมดปัจจุบันของแหล่งข้อมูล BOT สำหรับ /api/health */
+  mode(): SourceMode {
+    if (!this.canUseLive()) return 'demo';
+    if (this.health.lastErrorAt && !this.health.lastSuccessAt) return 'degraded';
+    if (
+      this.health.lastErrorAt &&
+      this.health.lastSuccessAt &&
+      Date.parse(this.health.lastErrorAt) > Date.parse(this.health.lastSuccessAt)
+    ) {
+      return 'degraded';
+    }
+    return 'live';
+  }
+
+  healthSnapshot(): HealthState & { apiKeyConfigured: boolean; cachedSeries: number } {
+    return {
+      ...this.health,
+      apiKeyConfigured: this.canUseLive(),
+      cachedSeries: botRepo.cacheStats().rows,
+    };
+  }
+
+  invalidate(seriesId?: BotSeriesId): number {
+    if (seriesId) {
+      for (const key of [...this.memory.keys()]) {
+        if (key.startsWith(`${seriesId}|`)) this.memory.delete(key);
+      }
+    } else {
+      this.memory.clear();
+    }
+    return botRepo.clearCache(seriesId);
+  }
+
+  /** ดึงอนุกรมข้อมูลหนึ่งชุด พร้อมข้อมูลที่มา */
+  async getSeries(seriesId: BotSeriesId, params: BotFetchParams = {}): Promise<BotSeries> {
+    const descriptor = getSeriesDescriptor(seriesId);
+    if (!descriptor) {
+      throw new BotApiError(`Unknown BOT series "${seriesId}"`, 'response');
+    }
+
+    const window = defaultWindow(90);
+    const resolved: BotFetchParams = {
+      start: params.start ?? window.start,
+      end: params.end ?? window.end,
+      ...(descriptor.supportsCurrency && params.currency
+        ? { currency: params.currency.toUpperCase() }
+        : {}),
+    };
+    const cacheKey = buildCacheKey(seriesId, resolved);
+    const now = new Date();
+
+    // 1) แคชในหน่วยความจำ
+    const hot = this.memory.get(cacheKey);
+    if (hot && hot.expiresAt > now.getTime()) {
+      return withCacheInfo(hot.series, {
+        hit: true,
+        ageSeconds: secondsBetween(hot.series.provenance.fetchedAt, now.toISOString()),
+        ttlSeconds: descriptor.ttlSeconds,
+      });
+    }
+
+    // 2) แคชในฐานข้อมูล (อยู่รอดข้ามการรีสตาร์ต)
+    const cached = botRepo.readCache(cacheKey, now);
+    if (cached && !cached.expired) {
+      this.memory.set(cacheKey, {
+        series: cached.series,
+        expiresAt: Date.parse(cached.expiresAt),
+      });
+      return withCacheInfo(cached.series, {
+        hit: true,
+        ageSeconds: secondsBetween(cached.fetchedAt, now.toISOString()),
+        ttlSeconds: descriptor.ttlSeconds,
+      });
+    }
+
+    // 3) เรียก BOT API จริง
+    if (this.canUseLive()) {
+      try {
+        const series = await this.fetchAndStore(this.live, descriptor, resolved, 'bot', cacheKey);
+        this.health = {
+          lastSuccessAt: new Date().toISOString(),
+          lastErrorAt: this.health.lastErrorAt,
+          lastError: this.health.lastError,
+        };
+        return series;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.health = {
+          lastSuccessAt: this.health.lastSuccessAt,
+          lastErrorAt: new Date().toISOString(),
+          lastError: message,
+        };
+
+        // 4) ข้อมูลจริงที่หมดอายุแล้ว ยังดีกว่าข้อมูลที่แต่งขึ้น
+        if (cached) {
+          const stale = markStale(cached.series, message, cached.fetchedAt, descriptor.ttlSeconds);
+          this.memory.set(cacheKey, { series: stale, expiresAt: now.getTime() + 60_000 });
+          return stale;
+        }
+
+        // 5) ถอยไปข้อมูลจำลอง และติดป้ายให้ชัด
+        return this.fetchAndStore(
+          this.mock,
+          descriptor,
+          resolved,
+          'demo',
+          cacheKey,
+          `${NOTICE_UNAVAILABLE} แสดงข้อมูลจำลองแทน (${message})`,
+        );
+      }
+    }
+
+    // ไม่มี API key → DEMO MODE ตั้งแต่ต้น
+    return this.fetchAndStore(
+      this.mock,
+      descriptor,
+      resolved,
+      'demo',
+      cacheKey,
+      'DEMO MODE: ยังไม่ได้ตั้งค่า BOT_API_KEY จึงแสดงข้อมูลจำลอง',
+    );
+  }
+
+  private async fetchAndStore(
+    client: BotApiClient,
+    descriptor: BotSeriesDescriptor,
+    params: BotFetchParams,
+    source: DataSource,
+    cacheKey: string,
+    notice: string | null = null,
+  ): Promise<BotSeries> {
+    const result = await client.fetchSeries(descriptor, params);
+    const fetchedAt = new Date().toISOString();
+
+    const series: BotSeries = {
+      seriesId: descriptor.id,
+      title: descriptor.title,
+      titleTh: descriptor.titleTh,
+      unit: descriptor.unit,
+      dimensions: [...new Set(result.observations.map((o) => o.dimension))].sort(),
+      observations: result.observations,
+      provenance: {
+        source,
+        sourceLabel: source === 'bot' ? SOURCE_LABEL_BOT : SOURCE_LABEL_DEMO,
+        lastUpdated: result.lastUpdated,
+        fetchedAt,
+        stale: false,
+        cache: { hit: false, ageSeconds: 0, ttlSeconds: descriptor.ttlSeconds },
+        notice,
+      },
+    };
+
+    botRepo.writeCache({
+      cacheKey,
+      seriesId: descriptor.id,
+      series,
+      source,
+      fetchedAt,
+      ttlSeconds: descriptor.ttlSeconds,
+    });
+    botRepo.upsertObservations({
+      seriesId: descriptor.id,
+      unit: descriptor.unit,
+      source,
+      observations: result.observations,
+    });
+    this.memory.set(cacheKey, {
+      series,
+      expiresAt: Date.parse(fetchedAt) + descriptor.ttlSeconds * 1000,
+    });
+
+    return series;
+  }
+
+  /** ค่าล่าสุด + ค่าก่อนหน้า + ส่วนต่าง ของมิติหนึ่งในชุดข้อมูล */
+  async getMetric(input: {
+    seriesId: BotSeriesId;
+    dimension?: string;
+    key: string;
+    label: string;
+    labelTh: string;
+    params?: BotFetchParams;
+    /** true = เฉลี่ยทุกมิติในงวดล่าสุด (ใช้กับ "อัตราดอกเบี้ยเงินกู้เฉลี่ย") */
+    averageDimensions?: boolean;
+  }): Promise<BotMetric> {
+    const series = await this.getSeries(input.seriesId, input.params ?? {});
+    return metricFromSeries(series, input);
+  }
+
+  /** ชุดตัวเลขสำหรับแดชบอร์ด Market & Economic Data */
+  async getSummary(): Promise<BotSummary> {
+    const [policyRate, lendingRate, depositRate, usdThb] = await Promise.all([
+      this.getMetric({
+        seriesId: 'policy_rate',
+        key: 'policy_rate',
+        label: 'Policy Rate',
+        labelTh: 'อัตราดอกเบี้ยนโยบาย',
+      }),
+      this.getMetric({
+        seriesId: 'lending_rate',
+        key: 'lending_rate_avg',
+        label: 'Average Lending Rate',
+        labelTh: 'อัตราดอกเบี้ยเงินกู้เฉลี่ย',
+        averageDimensions: true,
+      }),
+      this.getMetric({
+        seriesId: 'deposit_rate',
+        dimension: '12m',
+        key: 'deposit_rate_12m',
+        label: 'Deposit Rate (12M)',
+        labelTh: 'อัตราดอกเบี้ยเงินฝากประจำ 12 เดือน',
+      }),
+      this.getMetric({
+        seriesId: 'fx_average',
+        dimension: 'USD',
+        key: 'usd_thb',
+        label: 'USD/THB',
+        labelTh: 'ดอลลาร์สหรัฐ/บาท',
+        params: { currency: 'USD' },
+      }),
+    ]);
+
+    const metrics = [policyRate, lendingRate, depositRate, usdThb];
+    const anyDemo = metrics.some((m) => m.provenance.source === 'demo');
+    const notice = metrics.map((m) => m.provenance.notice).find((n) => n) ?? null;
+
+    return { policyRate, lendingRate, depositRate, usdThb, anyDemo, notice };
+  }
+
+  /**
+   * อัตราอ้างอิงสำหรับสินเชื่อลอยตัว เช่น MLR / MOR / MRR
+   * ใช้ตอนคิดต้นทุนสินเชื่อจริง จึงต้องดึงจาก BOT ไม่ใช่ค่าคงที่ในโค้ด
+   */
+  async getReferenceRate(
+    name: 'MLR' | 'MOR' | 'MRR',
+  ): Promise<{ name: string; value: number | null; provenance: Provenance }> {
+    const metric = await this.getMetric({
+      seriesId: 'lending_rate',
+      dimension: name,
+      key: `lending_${name.toLowerCase()}`,
+      label: name,
+      labelTh: name,
+    });
+    return { name, value: metric.current, provenance: metric.provenance };
+  }
+
+  /** อัตราแลกเปลี่ยนล่าสุดของสกุลเงินหนึ่ง (บาทต่อ 1 หน่วย) */
+  async getExchangeRate(currency: string): Promise<BotMetric> {
+    const code = currency.toUpperCase();
+    return this.getMetric({
+      seriesId: 'fx_average',
+      dimension: code,
+      key: `fx_${code.toLowerCase()}`,
+      label: `${code}/THB`,
+      labelTh: `${code}/บาท`,
+      params: { currency: code },
+    });
+  }
+}
+
+/** สร้างคีย์แคชจากรหัสชุดข้อมูลและพารามิเตอร์ที่เรียงแล้ว */
+export function buildCacheKey(seriesId: string, params: BotFetchParams): string {
+  const parts = Object.entries(params)
+    .filter(([, value]) => value !== undefined && value !== '')
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`);
+  return `${seriesId}|${parts.join('&')}`;
+}
+
+function withCacheInfo(series: BotSeries, cache: Provenance['cache']): BotSeries {
+  return { ...series, provenance: { ...series.provenance, cache } };
+}
+
+function markStale(
+  series: BotSeries,
+  reason: string,
+  fetchedAt: string,
+  ttlSeconds: number,
+): BotSeries {
+  return {
+    ...series,
+    provenance: {
+      ...series.provenance,
+      stale: true,
+      cache: {
+        hit: true,
+        ageSeconds: secondsBetween(fetchedAt, new Date().toISOString()),
+        ttlSeconds,
+      },
+      notice: `${NOTICE_UNAVAILABLE} กำลังแสดงข้อมูลจริงที่ดึงไว้ล่าสุด (${reason})`,
+    },
+  };
+}
+
+/** ดึงค่าล่าสุด/ก่อนหน้าออกจากอนุกรมข้อมูล */
+export function metricFromSeries(
+  series: BotSeries,
+  input: { key: string; label: string; labelTh: string; dimension?: string; averageDimensions?: boolean },
+): BotMetric {
+  const periods = [...new Set(series.observations.map((o) => o.period))].sort();
+  const valueAt = (period: string): number | null => {
+    const rows = series.observations.filter((o) => o.period === period);
+    const selected = input.averageDimensions
+      ? rows
+      : rows.filter((o) => o.dimension === (input.dimension ?? rows[0]?.dimension));
+    if (selected.length === 0) return null;
+    const sum = selected.reduce((acc, o) => acc + o.value, 0);
+    return round(sum / selected.length);
+  };
+
+  // มองย้อนจากงวดล่าสุด เก็บสองงวดที่อ่านค่าได้จริง
+  const found: { period: string; value: number }[] = [];
+  for (let i = periods.length - 1; i >= 0 && found.length < 2; i -= 1) {
+    const period = periods[i]!;
+    const value = valueAt(period);
+    if (value !== null) found.push({ period, value });
+  }
+
+  const current = found[0] ?? null;
+  const previous = found[1] ?? null;
+  const change = current && previous ? round(current.value - previous.value) : null;
+
+  return {
+    key: input.key,
+    label: input.label,
+    labelTh: input.labelTh,
+    unit: series.unit as BotUnit,
+    current: current?.value ?? null,
+    previous: previous?.value ?? null,
+    change,
+    changePercent:
+      current && previous && previous.value !== 0
+        ? round(((current.value - previous.value) / previous.value) * 100)
+        : null,
+    currentPeriod: current?.period ?? null,
+    previousPeriod: previous?.period ?? null,
+    provenance: series.provenance,
+  };
+}
+
+function round(value: number): number {
+  return Math.round(value * 1e6) / 1e6;
+}
+
+let singleton: BotService | null = null;
+
+export function getBotService(): BotService {
+  if (!singleton) {
+    singleton = new BotService({ forceDemo: env.botForceDemo });
+  }
+  return singleton;
+}
+
+export function setBotService(service: BotService | null): void {
+  singleton = service;
+}

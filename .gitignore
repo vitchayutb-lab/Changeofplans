@@ -11,3 +11,17 @@ venv/
 *.env
 !.env.example
 .streamlit/secrets.toml
+
+# ── SME Finance Copilot (Node/TypeScript app) ────────────────────────────────
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+coverage/
+
+# ฐานข้อมูล SQLite ที่ระบบสร้างเอง — ห้าม commit
+apps/server/data/
+*.db
+*.db-shm
+*.db-wal

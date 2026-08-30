@@ -1,0 +1,74 @@
+/* โทเคนการออกแบบ — สีและระยะห่างทั้งหมดอ้างอิงจากไฟล์นี้ไฟล์เดียว */
+
+:root {
+  color-scheme: light;
+
+  --bg: #f4f6fa;
+  --surface: #ffffff;
+  --surface-alt: #f8fafc;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+
+  --brand: #1d4ed8;
+  --brand-soft: #dbeafe;
+  --brand-dark: #1e3a8a;
+
+  --good: #15803d;
+  --good-soft: #dcfce7;
+  --watch: #b45309;
+  --watch-soft: #fef3c7;
+  --risk: #b91c1c;
+  --risk-soft: #fee2e2;
+  --demo: #a16207;
+  --demo-soft: #fef9c3;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgb(15 23 42 / 6%), 0 4px 12px rgb(15 23 42 / 4%);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --font: 'IBM Plex Sans Thai', 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --bg: #0b1220;
+    --surface: #131c2e;
+    --surface-alt: #182236;
+    --border: #24304a;
+    --border-strong: #33415f;
+
+    --text: #e8edf7;
+    --text-muted: #9aa8c0;
+    --text-faint: #6b7a94;
+
+    --brand: #6ea0ff;
+    --brand-soft: #1c2c4d;
+    --brand-dark: #b9d0ff;
+
+    --good: #4ade80;
+    --good-soft: #14321f;
+    --watch: #fbbf24;
+    --watch-soft: #3a2c0a;
+    --risk: #f87171;
+    --risk-soft: #3d1717;
+    --demo: #fcd34d;
+    --demo-soft: #3a2f0b;
+
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 14px rgb(0 0 0 / 30%);
+  }
+}

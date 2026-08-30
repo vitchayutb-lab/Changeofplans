@@ -1,0 +1,24 @@
+{
+  "name": "sme-finance-copilot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SME Finance Copilot — Thai SME financial advisory app with Bank of Thailand API integration, MCP tool layer and an AI advisor.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:server": "npm run dev -w @sme/server",
+    "dev:web": "npm run dev -w @sme/web",
+    "build": "npm run build -w @sme/shared && npm run build -w @sme/server && npm run build -w @sme/web",
+    "start": "npm run start -w @sme/server",
+    "mcp": "npm run mcp -w @sme/server",
+    "seed": "npm run seed -w @sme/server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  }
+}
