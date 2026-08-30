@@ -255,3 +255,61 @@ describe('รูปแบบผลลัพธ์ที่ยังไม่ร�
     ).toThrow(/timestamp, api, data.*observations/s);
   });
 })
+
+describe('รูปแบบจริงของ PolicyRate/v3 และ DepositRate/v2', () => {
+  it('อ่านอัตราดอกเบี้ยนโยบายที่ ธปท. คืนมาเป็นค่าเดียวที่ result.data', () => {
+    // คีย์ที่ได้จากการเรียกจริง: result{timestamp, api, data, announcement_date,
+    // news_text_en, news_text_th, effective_datetime} — data เป็นค่าเดี่ยว ไม่ใช่ array
+    const { observations } = normalizeSeries(BOT_SERIES.policy_rate, {
+      result: {
+        timestamp: '2026-08-31 00:20:49',
+        api: 'Policy Rate',
+        data: '1.50',
+        announcement_date: '2026-06-18',
+        news_text_th: 'กนง. มีมติ…',
+        effective_datetime: '2026-06-24 00:00:00',
+      },
+    });
+    expect(observations).toEqual([{ period: '2026-06-24', dimension: 'default', value: 1.5 }]);
+  });
+
+  it('รายงานเงินฝากเป็นจุดกึ่งกลางของช่วงที่ ธปท. ประกาศ', () => {
+    // ธปท. ให้มาเป็นช่วง _min/_max ต่อระยะฝาก การหยิบขอบเดียวจะสูงหรือต่ำเกินจริง
+    const bank = (name: string, min: string, max: string) => ({
+      period: '2026-08-27',
+      bank_type_name_eng: 'Commercial Banks registered in Thailand',
+      bank_name_eng: name,
+      fix_12_mths_min: min,
+      fix_12_mths_max: max,
+    });
+    const { observations } = normalizeSeries(
+      BOT_SERIES.deposit_rate,
+      envelope([bank('A', '1.00', '1.50'), bank('B', '1.20', '1.70')]),
+    );
+    const twelve = observations.find((o) => o.dimension === '12m');
+    // (1.00 + 1.50 + 1.20 + 1.70) / 4
+    expect(twelve?.value).toBeCloseTo(1.35, 6);
+  });
+
+  it('ข้ามขอบที่ธนาคารไม่ได้ประกาศ แทนที่จะดึงกึ่งกลางให้ต่ำลง', () => {
+    const { observations } = normalizeSeries(
+      BOT_SERIES.deposit_rate,
+      envelope([
+        {
+          period: '2026-08-27',
+          bank_type_name_eng: 'Commercial Banks registered in Thailand',
+          fix_12_mths_min: '2.00',
+          fix_12_mths_max: '',
+        },
+      ]),
+    );
+    expect(observations.find((o) => o.dimension === '12m')?.value).toBeCloseTo(2.0, 6);
+  });
+
+  it('ยังคัดเฉพาะธนาคารพาณิชย์ไทยเหมือนชุดอัตราดอกเบี้ยเงินกู้', () => {
+    expect(BOT_SERIES.deposit_rate.rowFilter?.accept).toContain(
+      'Commercial Banks registered in Thailand',
+    );
+    expect(BOT_SERIES.deposit_rate.nestedArrayKeys).toEqual([]);
+  });
+})

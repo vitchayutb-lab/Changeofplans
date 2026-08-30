@@ -26,7 +26,8 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     supportsDateRange: true,
     supportsCurrency: false,
     dimensions: ['default'],
-    periodFields: ['period', 'effective_date', 'date', 'as_of_date'],
+    // v3 คืนค่าปัจจุบันค่าเดียว วันที่มีผลอยู่ที่ effective_datetime (ตรวจกับผลลัพธ์จริง)
+    periodFields: ['period', 'effective_datetime', 'effective_date', 'announcement_date', 'date'],
     valueFields: {
       default: ['policy_rate', 'rate', 'value', 'interest_rate'],
     },
@@ -81,23 +82,28 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     supportsCurrency: false,
     dimensions: ['savings', '3m', '6m', '12m', '24m'],
     periodFields: ['period', 'date', 'as_of_date'],
+    // ตรวจกับผลลัพธ์จริงแล้ว: ธปท. ประกาศเป็นช่วง จึงมีทั้ง _min และ _max ต่อระยะฝาก
     valueFields: {
-      savings: ['saving', 'savings', 'saving_rate', 'rate_saving'],
-      '3m': ['fixed_3m', 'deposit_3m', 'rate_3m', '3m', 'time_3m'],
-      '6m': ['fixed_6m', 'deposit_6m', 'rate_6m', '6m', 'time_6m'],
-      '12m': ['fixed_12m', 'deposit_12m', 'rate_12m', '12m', 'time_12m'],
-      '24m': ['fixed_24m', 'deposit_24m', 'rate_24m', '24m', 'time_24m'],
+      savings: ['saving_min', 'saving_max'],
+      '3m': ['fix_3_mths_min', 'fix_3_mths_max'],
+      '6m': ['fix_6_mths_min', 'fix_6_mths_max'],
+      '12m': ['fix_12_mths_min', 'fix_12_mths_max'],
+      '24m': ['fix_24_mths_min', 'fix_24_mths_max'],
     },
-    // เป็น API ตระกูลเดียวกับ LoanRate จึงคาดว่า data_detail แบนและแยกรายธนาคารเหมือนกัน
-    // แต่ยังไม่ได้ตรวจกับผลลัพธ์จริง จึงคงคีย์ array ซ้อนไว้เผื่อรูปแบบต่างออกไป
-    nestedArrayKeys: ['bank_series', 'bank_list', 'detail', 'rate_detail', 'observation'],
+    // ค่าที่รายงานคือจุดกึ่งกลางของช่วง ไม่ใช่ขอบใดขอบหนึ่ง
+    averageValueFields: true,
+    // ตรวจแล้วเช่นเดียวกับ LoanRate: data_detail แบน หนึ่งแถวต่อ (วัน, ธนาคาร)
+    nestedArrayKeys: [],
     rowFilter: {
       field: ['bank_type_name_eng', 'bank_type_name_th', 'bank_type'],
       accept: ['Commercial Banks registered in Thailand', 'ธนาคารพาณิชย์จดทะเบียนในประเทศ'],
       label: 'กลุ่มธนาคารพาณิชย์ที่จดทะเบียนในประเทศ',
     },
     treatZeroAsMissing: true,
-    description: 'อัตราดอกเบี้ยเงินฝากออมทรัพย์และประจำ ใช้เทียบผลตอบแทนของเงินสดที่ถืออยู่',
+    description:
+      'อัตราดอกเบี้ยเงินฝากออมทรัพย์และประจำของบุคคลธรรมดา ธปท. ประกาศเป็นช่วง ' +
+      'ค่าที่แสดงคือจุดกึ่งกลางของช่วงเฉลี่ยข้ามธนาคารพาณิชย์ไทย ' +
+      'ใช้เทียบผลตอบแทนของเงินสดที่ถืออยู่',
   },
 
   fx_reference: {
