@@ -888,3 +888,63 @@ tbody tr:hover {
   color: var(--text-muted);
   font-size: 14px;
 }
+
+/* ── แถบตัวเลขของกราฟ ───────────────────────────────────────────────────── */
+
+/*
+ * ตัวเลขนำ ชื่อชุดตาม — คนที่ชี้อยู่รู้อยู่แล้วว่าชี้อะไร สิ่งที่ต้องการคือตัวเลข
+ * (สลับลำดับความเด่นกับคำอธิบายสัญลักษณ์ ซึ่งเน้นชื่อเป็นหลัก)
+ */
+.chart-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  min-height: 30px;
+  margin-top: 4px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--surface-alt);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.chart-readout__hint,
+.chart-readout__head {
+  color: var(--text-muted);
+}
+
+.chart-readout__head {
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-readout__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* ขีดสั้นแทนกล่องทึบ — ที่ความหนาแน่นระดับนี้ กล่องทึบหนักเกินหน้าที่ของมัน */
+.chart-readout__key {
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+  align-self: center;
+}
+
+.chart-readout__value {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-readout__label {
+  color: var(--text-muted);
+}
+
+/* เห็นได้ว่ากำลังโฟกัสอยู่ที่ปีไหนเมื่อเดินด้วยคีย์บอร์ด */
+.table-wrap rect[role='button']:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
