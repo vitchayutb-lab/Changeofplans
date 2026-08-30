@@ -727,3 +727,164 @@ tbody tr:hover {
     flex-direction: row;
   }
 }
+
+/* ── ช่องค้นหาและเลือกกิจการ ─────────────────────────────────────────────── */
+
+.picker {
+  position: relative;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.picker__button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.picker__button:hover {
+  background: var(--surface-alt);
+}
+
+.picker__name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.picker__meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.picker__input {
+  width: 100%;
+}
+
+.picker__panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  z-index: 20;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.picker__status {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.picker__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+}
+
+.picker__option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 7px 8px;
+  cursor: pointer;
+}
+
+.picker__option.is-active {
+  background: var(--brand-soft);
+}
+
+.picker__optionName {
+  font-weight: 500;
+}
+
+.picker__optionMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.picker__empty {
+  padding: 14px 12px;
+  text-align: center;
+}
+
+/* ── ผลประเมินของหน้าธุรกิจเริ่มต้น ──────────────────────────────────────── */
+
+.verdict {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.verdict__score {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius);
+  min-width: 150px;
+  justify-content: center;
+}
+
+.verdict__score--good {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.verdict__score--watch {
+  background: var(--watch-soft);
+  color: var(--watch);
+}
+
+.verdict__score--risk {
+  background: var(--risk-soft);
+  color: var(--risk);
+}
+
+.verdict__number {
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.verdict__of {
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.verdict__body {
+  flex: 1;
+  min-width: 260px;
+}
+
+.verdict__body p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}

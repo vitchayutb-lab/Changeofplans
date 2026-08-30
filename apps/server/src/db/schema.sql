@@ -153,6 +153,10 @@ CREATE TABLE IF NOT EXISTS tool_invocations (
 
 -- ── ดัชนี ───────────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_fs_sme_year     ON financial_statements(sme_id, fiscal_year DESC);
+CREATE INDEX IF NOT EXISTS idx_smes_industry   ON smes(industry);
+CREATE INDEX IF NOT EXISTS idx_smes_province   ON smes(province);
+CREATE INDEX IF NOT EXISTS idx_smes_name_th    ON smes(name_th);
+CREATE INDEX IF NOT EXISTS idx_smes_name_en    ON smes(name_en);
 CREATE INDEX IF NOT EXISTS idx_loans_sme       ON existing_loans(sme_id);
 CREATE INDEX IF NOT EXISTS idx_programs_active ON funding_programs(active, type);
 CREATE INDEX IF NOT EXISTS idx_cache_expires   ON bot_series_cache(expires_at);

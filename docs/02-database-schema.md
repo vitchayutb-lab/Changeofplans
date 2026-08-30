@@ -164,12 +164,35 @@ CREATE INDEX idx_tools_msg        ON tool_invocations(message_id, seq);
 
 Seeded once, on an empty database:
 
-- **3 SMEs** with distinct financial shapes: a profitable exporter with USD exposure, a
-  thin-margin retailer, and a fast-growing but cash-tight food producer.
-- **3 fiscal years** of statements per SME (FY2023–FY2025) so growth and trends are real.
-- **2–3 existing loans** per SME, including floating-rate facilities.
-- **10 funding programs** covering loans, grants, guarantees and subsidies with genuinely
-  differing eligibility rules so the matcher has something to discriminate on.
+**Hand-written (3 SMEs)** — distinct financial shapes used by most tests: a profitable
+exporter with USD exposure, a thin-margin retailer, and a fast-growing but cash-tight food
+producer. Three fiscal years each (FY2023–FY2025) plus 2–3 existing loans including
+floating-rate facilities.
+
+**Generated (1,000 SMEs)** — `db/generateSmes.ts` builds a deterministic dataset so search,
+filtering and funding matching have realistic volume to work against. Guarantees enforced by
+the generator and checked by tests:
+
+1. Every balance sheet balances **by construction** — equity is derived as
+   `totalAssets − totalLiabilities`, never chosen independently.
+2. Interest expense is computed from the interest-bearing debt actually on that year's
+   balance sheet, so coverage ratios mean something.
+3. Each SME's loan outstandings sum exactly to its latest interest-bearing debt.
+4. The same seed always produces the same 1,000 companies.
+
+Financial shape varies by industry (margins, receivable/inventory/payable days, fixed-asset
+share, revenue band), and provinces are drawn with weights approximating real SME density.
+Roughly 7% of statements carry accumulated losses, and a meaningful minority of companies are
+loss-making — otherwise the alerts and the funding matcher would have nothing to flag.
+
+Generated rows are marked `source = 'generated'` and use ids `sme-gen-0001`…; they are seeded
+additively, so a database that already holds the three hand-written SMEs gains the large set
+without being rebuilt. Pass `seedDatabase(db, { generated: false })` to skip them — the test
+suite does this by default for speed.
+
+**14 funding programs** covering loans, grants, guarantees, subsidies and equity, with
+genuinely differing eligibility rules. Four of them accept businesses aged 0–1 years, which is
+what makes the Startup mode useful rather than a wall of rejections.
 
 Seed figures are illustrative sample businesses, clearly marked `source = 'seed'`. They are
 sample *inputs*; all analysis over them is computed for real.

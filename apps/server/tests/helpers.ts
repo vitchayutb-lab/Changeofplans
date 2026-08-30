@@ -6,10 +6,16 @@ import { BotService, setBotService } from '../src/services/bot/botService.js';
 import { setLlmClient } from '../src/services/llm/index.js';
 import { createApp } from '../src/app.js';
 
-export function freshDb(): Db {
+/**
+ * ฐานข้อมูลในหน่วยความจำสำหรับเทสต์
+ *
+ * ปิดชุดกิจการที่สร้างอัตโนมัติไว้เป็นค่าเริ่มต้น เพราะเทสต์ส่วนใหญ่ใช้แค่สามรายที่
+ * เขียนมือไว้ และการใส่พันรายทุกครั้งที่ beforeEach ทำให้ชุดทดสอบช้าโดยไม่จำเป็น
+ */
+export function freshDb(options: { generated?: boolean; generatedCount?: number } = {}): Db {
   const db = createDatabase(':memory:');
   setDb(db);
-  seedDatabase(db);
+  seedDatabase(db, { generated: options.generated ?? false, ...options });
   return db;
 }
 
@@ -20,8 +26,8 @@ export function demoBotService(): BotService {
   return service;
 }
 
-export function setupApp() {
-  freshDb();
+export function setupApp(options: { generated?: boolean; generatedCount?: number } = {}) {
+  freshDb(options);
   demoBotService();
   setLlmClient(null);
   return createApp({ seed: false, serveStatic: false });

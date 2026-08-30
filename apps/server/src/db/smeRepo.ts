@@ -2,6 +2,7 @@
 
 import type {
   ExistingLoan,
+  SmeSummary,
   FinancialStatement,
   FinancialStatementInput,
   Industry,
@@ -214,4 +215,124 @@ export function listLoans(smeId: string): ExistingLoan[] {
     remainingMonths: row.remaining_months,
     startDate: row.start_date,
   }));
+}
+
+// ── การค้นหากิจการ ──────────────────────────────────────────────────────────
+
+export interface SmeSearchParams {
+  /** คำค้น: ชื่อไทย/อังกฤษ รหัสกิจการ เลขทะเบียน หรือจังหวัด */
+  q?: string;
+  industry?: string;
+  province?: string;
+  limit?: number;
+  offset?: number;
+}
+
+interface SummaryRow {
+  id: string;
+  name_th: string;
+  name_en: string;
+  industry: string;
+  province: string;
+  founded_year: number;
+  employees: number;
+  latest_revenue: number | null;
+  latest_fiscal_year: number | null;
+}
+
+/**
+ * ค้นหากิจการพร้อมนับจำนวนทั้งหมด
+ *
+ * ดึงรายได้ปีล่าสุดมาด้วยเพื่อให้รายการผลลัพธ์บอกขนาดกิจการได้ทันที
+ * โดยไม่ต้องยิงคำขอเพิ่มทีละราย
+ */
+export function searchSmes(params: SmeSearchParams = {}): {
+  smes: SmeSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+} {
+  const db = getDb();
+  const limit = Math.min(Math.max(params.limit ?? 25, 1), 100);
+  const offset = Math.max(params.offset ?? 0, 0);
+
+  const where: string[] = [];
+  const args: Record<string, unknown> = {};
+
+  const term = params.q?.trim();
+  if (term) {
+    where.push(
+      `(s.name_th LIKE @term OR s.name_en LIKE @term OR s.id LIKE @term
+        OR s.registration_no LIKE @term OR s.province LIKE @term)`,
+    );
+    args.term = `%${term}%`;
+  }
+  if (params.industry) {
+    where.push('s.industry = @industry');
+    args.industry = params.industry;
+  }
+  if (params.province) {
+    where.push('s.province = @province');
+    args.province = params.province;
+  }
+
+  const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+
+  const total = (
+    db.prepare(`SELECT COUNT(*) AS n FROM smes s ${whereSql}`).get(args) as { n: number }
+  ).n;
+
+  const rows = db
+    .prepare(
+      `SELECT s.id, s.name_th, s.name_en, s.industry, s.province, s.founded_year, s.employees,
+              f.revenue AS latest_revenue, f.fiscal_year AS latest_fiscal_year
+         FROM smes s
+         LEFT JOIN financial_statements f
+           ON f.id = (
+             SELECT id FROM financial_statements
+              WHERE sme_id = s.id AND period = 'FY'
+              ORDER BY fiscal_year DESC LIMIT 1
+           )
+         ${whereSql}
+         ORDER BY s.name_th
+         LIMIT @limit OFFSET @offset`,
+    )
+    .all({ ...args, limit, offset }) as SummaryRow[];
+
+  return {
+    smes: rows.map((row) => ({
+      id: row.id,
+      nameTh: row.name_th,
+      nameEn: row.name_en,
+      industry: row.industry as Industry,
+      province: row.province,
+      foundedYear: row.founded_year,
+      employees: row.employees,
+      latestRevenue: row.latest_revenue,
+      latestFiscalYear: row.latest_fiscal_year,
+    })),
+    total,
+    limit,
+    offset,
+  };
+}
+
+/** ค่าที่มีจริงในฐานข้อมูล ใช้สร้างตัวเลือกของตัวกรองโดยไม่ต้องฮาร์ดโค้ด */
+export function smeFacets(): { industries: string[]; provinces: string[] } {
+  const db = getDb();
+  const industries = (
+    db.prepare('SELECT DISTINCT industry FROM smes ORDER BY industry').all() as {
+      industry: string;
+    }[]
+  ).map((row) => row.industry);
+  const provinces = (
+    db.prepare('SELECT DISTINCT province FROM smes ORDER BY province').all() as {
+      province: string;
+    }[]
+  ).map((row) => row.province);
+  return { industries, provinces };
+}
+
+export function countSmes(): number {
+  return (getDb().prepare('SELECT COUNT(*) AS n FROM smes').get() as { n: number }).n;
 }

@@ -259,6 +259,11 @@ export const SUGGESTIONS = [
     focus: 'borrow',
   },
   {
+    th: 'เพิ่งเปิดธุรกิจใหม่ อยากกู้ 800,000 บาท ธนาคารจะให้กู้ไหม',
+    en: 'We just opened — would a bank lend us ฿800,000?',
+    focus: 'startup',
+  },
+  {
     th: 'สุขภาพการเงินของบริษัทตอนนี้เป็นอย่างไร',
     en: 'How healthy are our financials?',
     focus: 'health',

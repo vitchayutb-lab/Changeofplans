@@ -8,6 +8,7 @@ import { MarketDataPage } from './pages/MarketDataPage';
 import { FinancialsPage } from './pages/FinancialsPage';
 import { LoanSimulatorPage } from './pages/LoanSimulatorPage';
 import { FundingPage } from './pages/FundingPage';
+import { StartupPage } from './pages/StartupPage';
 import { AdvisorPage } from './pages/AdvisorPage';
 import { DeveloperPage } from './pages/DeveloperPage';
 import './styles/app.css';
@@ -21,6 +22,7 @@ const router = createBrowserRouter([
       { path: 'market', element: <MarketDataPage /> },
       { path: 'financials', element: <FinancialsPage /> },
       { path: 'loans', element: <LoanSimulatorPage /> },
+      { path: 'startup', element: <StartupPage /> },
       { path: 'funding', element: <FundingPage /> },
       { path: 'advisor', element: <AdvisorPage /> },
       { path: 'developer', element: <DeveloperPage /> },

@@ -10,6 +10,7 @@
  */
 
 import type { Db } from './index.js';
+import { generateSmes } from './generateSmes.js';
 
 interface SeedStatement {
   fiscalYear: number;
@@ -412,6 +413,66 @@ const PROGRAMS: SeedProgram[] = [
     url: null,
   },
   {
+    id: 'fp-smed-newentrepreneur',
+    nameTh: 'สินเชื่อเถ้าแก่ใหม่',
+    nameEn: 'New Entrepreneur Loan',
+    provider: 'ธนาคารพัฒนาวิสาหกิจขนาดกลางและขนาดย่อมแห่งประเทศไทย (SME D Bank)',
+    type: 'loan',
+    minAmount: 100_000, maxAmount: 1_000_000,
+    rateMin: 3.0, rateMax: 5.0, rateBasis: 'fixed', maxTermMonths: 84,
+    eligibleIndustries: ['*'], eligibleProvinces: ['*'],
+    minYearsOperating: 0, maxEmployees: 50, maxAnnualRevenue: 30_000_000,
+    requiresCollateral: false, minDscr: null,
+    descriptionTh: 'สินเชื่อสำหรับผู้เริ่มต้นธุรกิจที่ยังไม่มีงบการเงินย้อนหลัง เน้นแผนธุรกิจและกระแสเงินสดที่คาดการณ์ วงเงินไม่สูงแต่เข้าถึงง่ายที่สุดสำหรับรายใหม่',
+    descriptionEn: 'Entry loan for new businesses without a financial track record; assessed on the business plan and projected cash flow.',
+    url: null,
+  },
+  {
+    id: 'fp-gsb-microbiz',
+    nameTh: 'สินเชื่อไมโครบิสิเนส',
+    nameEn: 'Micro Business Loan',
+    provider: 'ธนาคารออมสิน',
+    type: 'loan',
+    minAmount: 50_000, maxAmount: 500_000,
+    rateMin: 0.75, rateMax: 3.0, rateBasis: 'mrr_spread', maxTermMonths: 60,
+    eligibleIndustries: ['*'], eligibleProvinces: ['*'],
+    minYearsOperating: 0, maxEmployees: 20, maxAnnualRevenue: 12_000_000,
+    requiresCollateral: false, minDscr: null,
+    descriptionTh: 'วงเงินขนาดเล็กสำหรับร้านค้าและผู้ประกอบการรายย่อยที่เพิ่งเริ่มต้น ใช้บุคคลค้ำประกันแทนหลักประกันได้',
+    descriptionEn: 'Small facility for micro-entrepreneurs; a personal guarantor can substitute for collateral.',
+    url: null,
+  },
+  {
+    id: 'fp-tcg-microguarantee',
+    nameTh: 'ค้ำประกันสินเชื่อรายย่อย (Micro Entrepreneur)',
+    nameEn: 'Micro Entrepreneur Guarantee',
+    provider: 'บรรษัทประกันสินเชื่ออุตสาหกรรมขนาดย่อม (บสย. / TCG)',
+    type: 'guarantee',
+    minAmount: 50_000, maxAmount: 2_000_000,
+    rateMin: null, rateMax: null, rateBasis: null, maxTermMonths: 120,
+    eligibleIndustries: ['*'], eligibleProvinces: ['*'],
+    minYearsOperating: 0, maxEmployees: 50, maxAnnualRevenue: 50_000_000,
+    requiresCollateral: false, minDscr: null,
+    descriptionTh: 'ค้ำประกันให้ผู้ประกอบการรายย่อยที่ไม่มีหลักประกันเลย เป็นทางที่ใช้บ่อยที่สุดเมื่อธนาคารปฏิเสธเพราะหลักประกันไม่พอ',
+    descriptionEn: 'Guarantee for micro-entrepreneurs with no collateral — the usual route when a bank declines on security alone.',
+    url: null,
+  },
+  {
+    id: 'fp-bank-startup-package',
+    nameTh: 'สินเชื่อธุรกิจเริ่มต้น SME Startup',
+    nameEn: 'SME Startup Package',
+    provider: 'ธนาคารกสิกรไทย',
+    type: 'loan',
+    minAmount: 200_000, maxAmount: 5_000_000,
+    rateMin: 1.5, rateMax: 4.0, rateBasis: 'mrr_spread', maxTermMonths: 60,
+    eligibleIndustries: ['*'], eligibleProvinces: ['*'],
+    minYearsOperating: 1, maxEmployees: 100, maxAnnualRevenue: 75_000_000,
+    requiresCollateral: false, minDscr: 1.1,
+    descriptionTh: 'แพ็กเกจสำหรับกิจการที่เปิดมาแล้วอย่างน้อย 1 ปี มีรายการเดินบัญชีให้ธนาคารดู ใช้ประเมินจากกระแสเงินสดจริงมากกว่าหลักประกัน',
+    descriptionEn: 'For businesses trading at least a year with bank statements to show; assessed on real cash flow rather than security.',
+    url: null,
+  },
+  {
     id: 'fp-equity-growth',
     nameTh: 'ร่วมลงทุนในกิจการระยะเติบโต',
     nameEn: 'Growth-Stage Equity Investment',
@@ -428,8 +489,21 @@ const PROGRAMS: SeedProgram[] = [
   },
 ];
 
+export interface SeedOptions {
+  /**
+   * ใส่กิจการที่สร้างด้วยตัวสร้าง (ค่าเริ่มต้น 1000 ราย) ด้วยหรือไม่
+   * ปิดได้ในเทสต์ที่ไม่ต้องการข้อมูลชุดใหญ่ เพื่อให้ชุดทดสอบเร็ว
+   */
+  generated?: boolean;
+  /** จำนวนกิจการที่จะสร้าง */
+  generatedCount?: number;
+}
+
 /** ใส่ข้อมูลตั้งต้นเฉพาะตอนที่ตารางยังว่าง — เรียกซ้ำได้อย่างปลอดภัย */
-export function seedDatabase(db: Db): { smes: number; statements: number; programs: number } {
+export function seedDatabase(
+  db: Db,
+  options: SeedOptions = {},
+): { smes: number; statements: number; programs: number } {
   const smeCount = (db.prepare('SELECT COUNT(*) AS n FROM smes').get() as { n: number }).n;
   const programCount = (
     db.prepare('SELECT COUNT(*) AS n FROM funding_programs').get() as { n: number }
@@ -487,6 +561,69 @@ export function seedDatabase(db: Db): { smes: number; statements: number; progra
         });
       }
     })();
+  }
+
+  // ── กิจการที่สร้างด้วยตัวสร้าง ────────────────────────────────────────────
+  // แยกจากบล็อกข้างบนเพราะฐานข้อมูลเดิมที่มีแค่สามรายซึ่งเขียนมือไว้ ควรได้ชุดใหญ่
+  // เพิ่มเข้าไปด้วยโดยไม่ต้องลบทิ้งแล้วสร้างใหม่
+  if (options.generated ?? true) {
+    const generatedCount = (
+      db.prepare("SELECT COUNT(*) AS n FROM smes WHERE id LIKE 'sme-gen-%'").get() as { n: number }
+    ).n;
+
+    if (generatedCount === 0) {
+      const insertSme = db.prepare(
+        `INSERT INTO smes (id, name_th, name_en, registration_no, industry, province,
+                           founded_year, employees, currency, fx_exposure_currency,
+                           fx_annual_exposure, created_at)
+         VALUES (@id, @nameTh, @nameEn, @registrationNo, @industry, @province,
+                 @foundedYear, @employees, 'THB', @fxExposureCurrency,
+                 @fxAnnualExposure, @createdAt)`,
+      );
+      const insertStatement = db.prepare(
+        `INSERT INTO financial_statements (
+           id, sme_id, fiscal_year, period, revenue, cogs, operating_expenses, depreciation,
+           interest_expense, tax, cash, accounts_receivable, inventory, other_current_assets,
+           fixed_assets, accounts_payable, short_term_debt, other_current_liabilities,
+           long_term_debt, equity_paid_up, retained_earnings, source)
+         VALUES (@id, @smeId, @fiscalYear, 'FY', @revenue, @cogs, @operatingExpenses,
+                 @depreciation, @interestExpense, @tax, @cash, @accountsReceivable, @inventory,
+                 @otherCurrentAssets, @fixedAssets, @accountsPayable, @shortTermDebt,
+                 @otherCurrentLiabilities, @longTermDebt, @equityPaidUp, @retainedEarnings,
+                 'generated')`,
+      );
+      const insertLoan = db.prepare(
+        `INSERT INTO existing_loans (id, sme_id, lender, product, principal, outstanding,
+                                     rate_type, rate_value, term_months, remaining_months, start_date)
+         VALUES (@id, @smeId, @lender, @product, @principal, @outstanding,
+                 @rateType, @rateValue, @termMonths, @remainingMonths, @startDate)`,
+      );
+
+      const generated = generateSmes({ count: options.generatedCount ?? 1000 });
+      db.transaction(() => {
+        for (const sme of generated) {
+          insertSme.run({
+            id: sme.id, nameTh: sme.nameTh, nameEn: sme.nameEn,
+            registrationNo: sme.registrationNo, industry: sme.industry, province: sme.province,
+            foundedYear: sme.foundedYear, employees: sme.employees,
+            fxExposureCurrency: sme.fxExposureCurrency, fxAnnualExposure: sme.fxAnnualExposure,
+            createdAt: now,
+          });
+          smes += 1;
+          for (const statement of sme.statements) {
+            insertStatement.run({
+              id: `${sme.id}-fy${statement.fiscalYear}`,
+              smeId: sme.id,
+              ...statement,
+            });
+            statements += 1;
+          }
+          sme.loans.forEach((loan, index) => {
+            insertLoan.run({ id: `${sme.id}-loan${index + 1}`, smeId: sme.id, ...loan });
+          });
+        }
+      })();
+    }
   }
 
   if (programCount === 0) {

@@ -28,6 +28,7 @@ design-token CSS layer keeps the bundle honest and the markup readable.
 | `/market` | `MarketDataPage` | **Market & Economic Data** — the BOT section in full |
 | `/financials` | `FinancialsPage` | Statements, ratios with benchmarks, trends |
 | `/loans` | `LoanSimulatorPage` | Borrowing simulator wired to live BOT rates |
+| `/startup` | `StartupPage` | Loan-readiness assessment for a business with no statements yet |
 | `/funding` | `FundingPage` | Program database + ranked matches + pipeline |
 | `/advisor` | `AdvisorPage` | AI Financial Advisor chat with visible tool trace |
 | `/developer` | `DeveloperPage` | Tool catalog, manual tool invocation, cache + health inspector |
@@ -67,6 +68,20 @@ design-token CSS layer keeps the bundle honest and the markup readable.
 - `<AmortizationChart/>` + `<AmortizationTable/>` — real schedule, principal vs interest split.
 - `<EstimateDisclaimer/>` — "Estimates only. Not a credit offer."
 
+### StartupPage
+For businesses too new to have financial statements. See
+[`docs/07-startup-assessment.md`](07-startup-assessment.md) for the scoring model.
+- `<StartupForm/>` — capital, cash, monthly revenue and expenses, existing debt, collateral,
+  credit history, and the requested facility. Pre-filled with a worked example so the result
+  is visible immediately.
+- `<Verdict/>` — score out of 100, likelihood band, and any hard blockers.
+- `<MetricRow/>` — estimated rate (BOT reference + risk spread), monthly payment, DSCR, and
+  the amount current cash flow actually supports.
+- `<FactorTable/>` — all nine factors with the user's own number, the benchmark, and the weight.
+- `<ProductSuggestions/>` / `<LenderShortlist/>` — what to borrow and where, with the failed
+  rule named for every program that does not qualify.
+- `<ActionList/>` — improvement steps with the arithmetic already done.
+
 ### FundingPage
 - `<MatchList/>` — ranked programs; each `<MatchCard/>` shows score, estimated rate and cost,
   and a rule-by-rule `<EligibilityChecklist/>` (✓ / ✗ with the actual numbers compared).
@@ -95,6 +110,7 @@ design-token CSS layer keeps the bundle honest and the markup readable.
 
 | Component | Responsibility |
 |---|---|
+| `<SmePicker/>` | Searchable combobox over 1,000+ businesses: debounced server-side search, keyboard navigation, shows industry/province/revenue per row. Replaces a `<select>`, which cannot scale past a few dozen options |
 | `<MetricCard/>` | value, previous, change (▲▼ + colour), unit, footer slot |
 | `<SourceBadge/>` | `Source: Bank of Thailand` / `Demo Data`, plus `Updated: 29 Aug 2026`; the single place provenance is rendered |
 | `<DemoBanner/>` | dismissible page-level banner when any source is demo or degraded |

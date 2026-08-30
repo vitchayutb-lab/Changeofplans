@@ -26,6 +26,30 @@ export interface Sme {
   createdAt: string;
 }
 
+/** ข้อมูลย่อของกิจการสำหรับรายการค้นหา — เบากว่า Sme เต็ม ๆ เพราะต้องส่งทีละหลายรายการ */
+export interface SmeSummary {
+  id: string;
+  nameTh: string;
+  nameEn: string;
+  industry: Industry;
+  province: string;
+  foundedYear: number;
+  employees: number;
+  /** รายได้ของงบปีล่าสุดที่บันทึกไว้ (null เมื่อยังไม่มีงบ) */
+  latestRevenue: number | null;
+  latestFiscalYear: number | null;
+}
+
+export interface SmeSearchResult {
+  smes: SmeSummary[];
+  /** จำนวนทั้งหมดที่ตรงเงื่อนไข (ไม่ใช่แค่หน้านี้) */
+  total: number;
+  limit: number;
+  offset: number;
+  /** ตัวเลือกสำหรับตัวกรอง คำนวณจากข้อมูลจริงในฐานข้อมูล */
+  facets: { industries: string[]; provinces: string[] };
+}
+
 export type StatementPeriod = 'FY' | 'H1' | 'Q1' | 'Q2' | 'Q3' | 'Q4';
 
 /** ตัวเลขดิบที่กรอกเข้าระบบ — ค่าที่คำนวณต่อได้จะไม่เก็บลงฐานข้อมูล */
