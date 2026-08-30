@@ -2,7 +2,12 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { BotObservation, BotSeriesId } from '@sme/shared';
-import { BotService, buildCacheKey, metricFromSeries } from '../src/services/bot/botService.js';
+import {
+  BotService,
+  buildCacheKey,
+  metricFromSeries,
+  SUMMARY_SERIES,
+} from '../src/services/bot/botService.js';
 import { MockBotClient, policyRateAt } from '../src/services/bot/botMockClient.js';
 import { BOT_SERIES, listSeriesDescriptors } from '../src/services/bot/botSeries.js';
 import { BotApiError } from '../src/services/bot/botTypes.js';
@@ -385,3 +390,64 @@ describe('แหล่งอัตราแลกเปลี่ยนของ�
     expect(BOT_SERIES.spot_rate.path).toBe('/Stat-SpotRate/v2/SPOTRATE/');
   });
 })
+
+describe('สถานะรวมสะท้อนเฉพาะชุดที่แดชบอร์ดใช้', () => {
+  /** สำเร็จเฉพาะชุดที่ระบุ ชุดอื่นโดนปฏิเสธสิทธิ์แบบเดียวกับที่ ธปท. ตอบจริง */
+  function client(succeedFor: BotSeriesId[]): BotApiClient {
+    return {
+      kind: 'live',
+      async fetchSeries(descriptor) {
+        if (!succeedFor.includes(descriptor.id)) {
+          throw new BotApiError('ธปท. ปฏิเสธคำขอ (HTTP 403)', 'auth', 403);
+        }
+        return {
+          observations: [{ period: '2026-08-27', dimension: descriptor.dimensions[0]!, value: 1 }],
+          lastUpdated: null,
+          unit: descriptor.unit,
+        };
+      },
+    };
+  }
+
+  it('ชุดเสริมที่ไม่ได้ subscribe ตอบ 403 ไม่ทำให้ทั้งระบบขึ้นว่าขัดข้อง', async () => {
+    // อาการจริง: เปิดดูอัตราแลกเปลี่ยนบนหน้าข้อมูลตลาด แล้วทั้งเว็บพลิกเป็นข้อมูลจำลอง
+    // ทั้งที่ชุดหลักสี่ชุดยังดึงข้อมูลจริงได้ครบ
+    const service = new BotService({ liveClient: client(SUMMARY_SERIES), liveEnabled: true });
+    for (const id of SUMMARY_SERIES) await service.getSeries(id);
+    expect(service.mode()).toBe('live');
+
+    await service.getSeries('fx_average');
+    expect(service.mode()).toBe('live');
+  });
+
+  it('ชุดหลักพังเมื่อไร ถึงจะขึ้นว่าขัดข้อง', async () => {
+    const service = new BotService({
+      liveClient: client(SUMMARY_SERIES.filter((id) => id !== 'lending_rate')),
+      liveEnabled: true,
+    });
+    for (const id of SUMMARY_SERIES) await service.getSeries(id);
+    expect(service.mode()).toBe('degraded');
+  });
+
+  it('ยังไม่เคยเรียกอะไรเลย ถือว่าปกติ ไม่ใช่ขัดข้อง', () => {
+    expect(new BotService({ liveClient: client([]), liveEnabled: true }).mode()).toBe('live');
+  });
+
+  it('รายการชุดหลักตรงกับที่ getSummary เรียกจริง', async () => {
+    // ถ้าสองอย่างนี้หลุดจากกัน สถานะที่รายงานจะไม่ตรงกับสิ่งที่ผู้ใช้เห็น
+    const asked: BotSeriesId[] = [];
+    const spy: BotApiClient = {
+      kind: 'live',
+      async fetchSeries(descriptor) {
+        asked.push(descriptor.id);
+        return {
+          observations: [{ period: '2026-08-27', dimension: descriptor.dimensions[0]!, value: 1 }],
+          lastUpdated: null,
+          unit: descriptor.unit,
+        };
+      },
+    };
+    await new BotService({ liveClient: spy, liveEnabled: true }).getSummary();
+    expect([...asked].sort()).toEqual([...SUMMARY_SERIES].sort());
+  });
+});
