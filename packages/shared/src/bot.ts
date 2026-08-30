@@ -16,6 +16,7 @@ export type BotSeriesId =
   | 'policy_rate'
   | 'lending_rate'
   | 'deposit_rate'
+  | 'loan_ceiling_rate'
   | 'spot_rate'
   | 'fx_reference'
   | 'fx_average'
@@ -28,6 +29,7 @@ export const BOT_SERIES_IDS: BotSeriesId[] = [
   'policy_rate',
   'lending_rate',
   'deposit_rate',
+  'loan_ceiling_rate',
   'spot_rate',
   'fx_reference',
   'fx_average',

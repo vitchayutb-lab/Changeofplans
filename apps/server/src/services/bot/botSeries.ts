@@ -69,6 +69,37 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
       'อัตราดอกเบี้ยเงินกู้ประกาศของธนาคารพาณิชย์ (MLR / MOR / MRR) ใช้เป็นฐานคิดต้นทุนสินเชื่อ SME',
   },
 
+  loan_ceiling_rate: {
+    id: 'loan_ceiling_rate',
+    title: 'Ceiling and Default Rates of Commercial Banks',
+    titleTh: 'เพดานดอกเบี้ยและอัตราผิดนัดชำระของธนาคารพาณิชย์',
+    // endpoint เดียวกับ lending_rate แต่คนละคอลัมน์ — แยกชุดเพราะสเกลต่างกันหลายเท่า
+    // (MLR ~7% เทียบกับเพดาน 12-35%) ถ้าอยู่ชุดเดียวกันจะทำให้กราฟอ่านไม่ได้
+    // และการ์ด "ดอกเบี้ยเงินกู้เฉลี่ย" ซึ่งเฉลี่ยทุกมิติจะเพี้ยนไปเป็นเท่าตัว
+    path: '/LoanRate/v2/loan_rate/',
+    unit: 'percent_per_annum',
+    ttlSeconds: 1 * HOUR,
+    supportsDateRange: true,
+    maxRangeDays: 31,
+    supportsCurrency: false,
+    dimensions: ['ceiling', 'penalty'],
+    periodFields: ['period', 'date', 'as_of_date'],
+    valueFields: {
+      ceiling: ['ceiling_rate'],
+      penalty: ['default_rate'],
+    },
+    nestedArrayKeys: [],
+    rowFilter: {
+      field: ['bank_type_name_eng', 'bank_type_name_th', 'bank_type'],
+      accept: ['Commercial Banks registered in Thailand', 'ธนาคารพาณิชย์จดทะเบียนในประเทศ'],
+      label: 'กลุ่มธนาคารพาณิชย์ที่จดทะเบียนในประเทศ',
+    },
+    treatZeroAsMissing: true,
+    description:
+      'เพดานอัตราดอกเบี้ยสูงสุดที่ธนาคารเรียกเก็บได้ตามประกาศ และอัตราที่ใช้เมื่อผิดนัดชำระ ' +
+      'ใช้ประเมินความเสี่ยงขาลง: ถ้าจ่ายไม่ไหว ต้นทุนจะขยับไปที่อัตราผิดนัด ไม่ใช่อัตราเดิม',
+  },
+
   deposit_rate: {
     id: 'deposit_rate',
     title: 'Deposit Interest Rates of Commercial Banks',
