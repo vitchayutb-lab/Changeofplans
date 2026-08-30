@@ -39,11 +39,11 @@ describe('การอ่านค่าจาก environment', () => {
     expect(env.botApiKey).toBe('abc123def456');
   });
 
-  it('ไม่มีค่าเริ่มต้นของที่อยู่เกตเวย์ เพราะเดาแทนผู้ใช้ไม่ได้', async () => {
-    // เกตเวย์เดิมถูกปิดไปแล้ว และที่อยู่ใหม่ต่างกันตามสิทธิ์ที่แต่ละคนสมัคร
+  it('ถอยไปใช้เกตเวย์ที่ตรวจแล้วว่าใช้ได้ เมื่อไม่ได้ตั้งที่อยู่เอง', async () => {
+    // ตรวจกับการเรียกจริงแล้วว่าโฮสต์นี้ตอบ 200 พร้อม JSON ที่ถูกต้อง
+    // (ระบบเดิม apigw1.bot.or.th ถูกปิดไปเมื่อ 31 ธ.ค. 2025)
     const env = await loadEnv({ BOT_API_BASE_URL: '   ' });
-    expect(env.botApiBaseUrl).toBe('');
-    // ค่าว่างไม่ใช่ "ตั้งผิด" แต่เป็น "ยังตั้งไม่ครบ" ซึ่งรายงานแยกกัน
+    expect(env.botApiBaseUrl).toBe('https://gateway.api.bot.or.th');
     expect(env.botApiBaseUrlError).toBeNull();
   });
 
@@ -55,10 +55,18 @@ describe('การอ่านค่าจาก environment', () => {
     expect(mod.botConfigGap()).toContain('BOT_API_KEY');
     expect(mod.botLiveConfigured()).toBe(false);
 
+    // มีแค่ API key ก็พอ เพราะที่อยู่เกตเวย์มีค่าเริ่มต้นที่ใช้งานได้อยู่แล้ว
     vi.stubEnv('BOT_API_KEY', 'key-that-looks-real-123456');
     vi.resetModules();
     mod = await import('../src/config/env.js');
-    expect(mod.botConfigGap()).toContain('BOT_API_BASE_URL');
+    expect(mod.botConfigGap()).toBeNull();
+    expect(mod.botLiveConfigured()).toBe(true);
+
+    // แต่ถ้าตั้งที่อยู่เองแล้วตั้งผิด ต้องบอกว่าผิดตรงไหน ไม่ใช่เงียบแล้วใช้ข้อมูลจำลอง
+    vi.stubEnv('BOT_API_BASE_URL', 'apigw1.bot.or.th/bot/public');
+    vi.resetModules();
+    mod = await import('../src/config/env.js');
+    expect(mod.botConfigGap()).toContain('https://');
     expect(mod.botLiveConfigured()).toBe(false);
 
     vi.stubEnv('BOT_API_BASE_URL', NEUTRAL);

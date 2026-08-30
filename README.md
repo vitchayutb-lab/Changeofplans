@@ -116,13 +116,23 @@ docker run -d -p 80:8787 -e BOT_API_KEY=xxxxx -v sme-data:/data sme-finance-copi
 คัดลอก `.env.example` เป็น `.env` ที่รากโปรเจกต์ แล้วใส่ค่า:
 
 ```bash
-BOT_API_KEY=<Client ID จากพอร์ทัลของคุณ>
+# วางคีย์ล้วน ๆ ห้ามมีวงเล็บ < > หรือเครื่องหมายคำพูดครอบ
+BOT_API_KEY=eyJvcmciOiJ...
+```
+
+ตัวแปรที่เหลือมีค่าเริ่มต้นที่ใช้ได้อยู่แล้ว ตั้งเพิ่มเมื่อต้องการเปลี่ยนเท่านั้น:
+
+```bash
 BOT_API_BASE_URL=https://gateway.api.bot.or.th
 BOT_API_KEY_HEADER=Authorization
 BOT_TIMEOUT_MS=8000
 BOT_MAX_RETRIES=2
 BOT_MAX_RPS=5
 ```
+
+> คีย์เดียวไม่ได้เปิดทุกชุดข้อมูล — ต้อง **Subscribe** แต่ละชุดในหน้า Catalogues ของพอร์ทัลก่อน
+> ถ้ายังไม่ได้ subscribe เกตเวย์จะตอบ `403 Access to this API has been disallowed`
+> (คนละอาการกับคีย์ผิดซึ่งได้ `401`) ระบบยกข้อความจริงจาก ธปท. มาแสดงให้เห็นทั้งสองกรณี
 
 > ⚠️ **`BOT_API_BASE_URL` ใส่เฉพาะโฮสต์ ห้ามใส่ path ของ endpoint ต่อท้าย** — path ของ
 > แต่ละชุดข้อมูลอยู่ใน `botSeries.ts` แล้ว ธปท. ปิดเกตเวย์เดิม `apigw1.bot.or.th` ไปเมื่อ
@@ -284,8 +294,8 @@ get_bot_economic_indicator(indicator, start, end)
 | ตัวแปร | ค่าเริ่มต้น | ใช้ทำอะไร |
 |---|---|---|
 | `BOT_API_KEY` | *(ว่าง)* | **ความลับ** — Client ID ของ BOT API; ว่าง = DEMO MODE |
-| `BOT_API_BASE_URL` | `https://apigw1.bot.or.th/bot/public` | โฮสต์ของ BOT API gateway |
-| `BOT_API_KEY_HEADER` | `X-IBM-Client-Id` | ชื่อ header ที่ใช้ส่งคีย์ |
+| `BOT_API_BASE_URL` | `https://gateway.api.bot.or.th` | โฮสต์ของ BOT API gateway |
+| `BOT_API_KEY_HEADER` | `Authorization` | ชื่อ header ที่ใช้ส่งคีย์ (ส่งโทเคนดิบ ไม่มี `Bearer`) |
 | `BOT_TIMEOUT_MS` | `8000` | timeout ต่อคำขอ |
 | `BOT_MAX_RETRIES` | `2` | จำนวนครั้งที่ลองใหม่เมื่อเจอ 5xx/network |
 | `BOT_MAX_RPS` | `5` | เพดานคำขอต่อวินาทีที่ยิงออกไปหา BOT |

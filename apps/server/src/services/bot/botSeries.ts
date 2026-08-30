@@ -51,8 +51,17 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
       MOR: ['mor', 'MOR', 'rate_mor', 'min_overdraft_rate'],
       MRR: ['mrr', 'MRR', 'rate_mrr', 'min_retail_rate'],
     },
-    // ผลลัพธ์อาจแยกเป็นรายธนาคาร — คลี่ออกแล้วเฉลี่ยต่อวัน
-    nestedArrayKeys: ['bank_series', 'bank_list', 'detail', 'rate_detail', 'observation'],
+    // ตรวจกับผลลัพธ์จริงแล้ว: data_detail แบน หนึ่งแถวต่อ (วัน, ธนาคาร) ไม่มี array ซ้อน
+    nestedArrayKeys: [],
+    // ชุดนี้รวมสาขาธนาคารต่างประเทศมาด้วย ซึ่งอัตรากระจายกว้างกว่ามาก (เช่น MLR 6.0–9.7)
+    // และ SME ไทยไม่ได้กู้จากกลุ่มนั้น จึงเฉลี่ยเฉพาะธนาคารพาณิชย์ที่จดทะเบียนในประเทศ
+    rowFilter: {
+      field: ['bank_type_name_eng', 'bank_type_name_th', 'bank_type'],
+      accept: ['Commercial Banks registered in Thailand', 'ธนาคารพาณิชย์จดทะเบียนในประเทศ'],
+      label: 'กลุ่มธนาคารพาณิชย์ที่จดทะเบียนในประเทศ',
+    },
+    // ธนาคารที่ไม่ได้ประกาศอัตราส่งมาเป็นช่องว่างหรือ 0.0000 แล้วแต่ธนาคาร
+    treatZeroAsMissing: true,
     description:
       'อัตราดอกเบี้ยเงินกู้ประกาศของธนาคารพาณิชย์ (MLR / MOR / MRR) ใช้เป็นฐานคิดต้นทุนสินเชื่อ SME',
   },
@@ -75,7 +84,15 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
       '12m': ['fixed_12m', 'deposit_12m', 'rate_12m', '12m', 'time_12m'],
       '24m': ['fixed_24m', 'deposit_24m', 'rate_24m', '24m', 'time_24m'],
     },
+    // เป็น API ตระกูลเดียวกับ LoanRate จึงคาดว่า data_detail แบนและแยกรายธนาคารเหมือนกัน
+    // แต่ยังไม่ได้ตรวจกับผลลัพธ์จริง จึงคงคีย์ array ซ้อนไว้เผื่อรูปแบบต่างออกไป
     nestedArrayKeys: ['bank_series', 'bank_list', 'detail', 'rate_detail', 'observation'],
+    rowFilter: {
+      field: ['bank_type_name_eng', 'bank_type_name_th', 'bank_type'],
+      accept: ['Commercial Banks registered in Thailand', 'ธนาคารพาณิชย์จดทะเบียนในประเทศ'],
+      label: 'กลุ่มธนาคารพาณิชย์ที่จดทะเบียนในประเทศ',
+    },
+    treatZeroAsMissing: true,
     description: 'อัตราดอกเบี้ยเงินฝากออมทรัพย์และประจำ ใช้เทียบผลตอบแทนของเงินสดที่ถืออยู่',
   },
 

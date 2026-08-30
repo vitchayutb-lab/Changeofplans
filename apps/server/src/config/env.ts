@@ -75,6 +75,15 @@ export const RETIRED_BOT_HOSTS = ['apigw1.bot.or.th', 'apiportal.bot.or.th'];
 export const BOT_PORTAL_URL = 'https://portal.api.bot.or.th/';
 
 /**
+ * เกตเวย์ปัจจุบันของ BOT API
+ *
+ * ตรวจกับการเรียกจริงแล้วว่า https://gateway.api.bot.or.th/LoanRate/v2/loan_rate/ ตอบ 200
+ * พร้อม JSON ที่ถูกต้อง จึงใช้เป็นค่าเริ่มต้นได้ ต่างจาก portal.api.bot.or.th ซึ่งเป็น
+ * เว็บพอร์ทัลสำหรับสมัครใช้งาน (ตอบกลับเป็นหน้า HTML ไม่ใช่ข้อมูล)
+ */
+export const BOT_GATEWAY_URL = 'https://gateway.api.bot.or.th';
+
+/**
  * ที่อยู่ของ BOT API ต้องเป็น URL เต็มรูปแบบที่ขึ้นต้นด้วย http หรือ https
  * คืนข้อความอธิบายเมื่อไม่ถูกต้อง และคืน null เมื่อใช้ได้ (รวมถึงกรณีที่ยังไม่ได้ตั้งค่า)
  */
@@ -191,10 +200,8 @@ export const env: AppEnv = {
   rateLimitExpensiveMax: num('RATE_LIMIT_EXPENSIVE_MAX', 20),
 
   botApiKey: str('BOT_API_KEY'),
-  // ไม่มีค่าเริ่มต้น: เกตเวย์เดิมถูกปิดไปแล้ว และที่อยู่ของระบบใหม่อยู่ในเอกสารหลัง login
-  // ของพอร์ทัลซึ่งต่างกันไปตามสิทธิ์ที่แต่ละคนสมัคร การเดาให้จึงมีแต่จะพาไปผิดทาง
-  botApiBaseUrl: str('BOT_API_BASE_URL'),
-  botApiBaseUrlError: validateBotBaseUrl(str('BOT_API_BASE_URL')),
+  botApiBaseUrl: str('BOT_API_BASE_URL', BOT_GATEWAY_URL),
+  botApiBaseUrlError: validateBotBaseUrl(str('BOT_API_BASE_URL', BOT_GATEWAY_URL)),
   // เกตเวย์ใหม่ใช้ header ชื่อ Authorization โดยส่งโทเคนดิบ ไม่มีคำว่า Bearer นำหน้า
   // (ระบบเดิมที่ปิดไปแล้วใช้ X-IBM-Client-Id — ยังเปลี่ยนกลับได้ผ่านตัวแปรนี้)
   botApiKeyHeader: str('BOT_API_KEY_HEADER', 'Authorization'),
@@ -227,10 +234,11 @@ export function botLiveConfigured(): boolean {
 export function botConfigGap(): string | null {
   if (env.botForceDemo) return 'ถูกบังคับให้ใช้ข้อมูลจำลองด้วย BOT_FORCE_DEMO';
   if (env.botApiKey.trim() === '') return 'ยังไม่ได้ตั้ง BOT_API_KEY';
+  // ปกติจะถอยไปใช้ค่าเริ่มต้นเสมอ จะว่างได้ก็ต่อเมื่อโค้ดที่เรียกใช้ล้างค่าทิ้งเอง
   if (env.botApiBaseUrl.trim() === '') {
     return (
-      'ยังไม่ได้ตั้ง BOT_API_BASE_URL — ดูที่อยู่ของเกตเวย์ได้จากเอกสาร API ' +
-      `ในพอร์ทัลของคุณที่ ${BOT_PORTAL_URL}`
+      `BOT_API_BASE_URL ถูกตั้งเป็นค่าว่าง — ปล่อยว่างไว้เพื่อใช้ ${BOT_GATEWAY_URL} ` +
+      `หรือดูที่อยู่เกตเวย์ของคุณได้จากเอกสาร API ในพอร์ทัลที่ ${BOT_PORTAL_URL}`
     );
   }
   return env.botApiBaseUrlError;
