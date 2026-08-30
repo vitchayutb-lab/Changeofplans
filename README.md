@@ -117,17 +117,17 @@ docker run -d -p 80:8787 -e BOT_API_KEY=xxxxx -v sme-data:/data sme-finance-copi
 
 ```bash
 BOT_API_KEY=<Client ID จากพอร์ทัลของคุณ>
-BOT_API_BASE_URL=<base URL จากเอกสาร API ในพอร์ทัลของคุณ>
+BOT_API_BASE_URL=https://gateway.api.bot.or.th
 BOT_API_KEY_HEADER=X-IBM-Client-Id
 BOT_TIMEOUT_MS=8000
 BOT_MAX_RETRIES=2
 BOT_MAX_RPS=5
 ```
 
-> ⚠️ **`BOT_API_BASE_URL` ไม่มีค่าเริ่มต้นโดยตั้งใจ** — ธปท. ย้ายไปพอร์ทัลใหม่ที่
-> <https://portal.api.bot.or.th/> และปิดเกตเวย์เดิม `apigw1.bot.or.th` ไปแล้วเมื่อ
-> 31 ธ.ค. 2025 ที่อยู่ของระบบใหม่อยู่ในเอกสารหลัง login และต่างกันตามชุดข้อมูลที่
-> แต่ละบัญชี subscribe ระบบจึงไม่เดาให้ ถ้าไม่ตั้งจะทำงานใน DEMO MODE ต่อไป
+> ⚠️ **`BOT_API_BASE_URL` ใส่เฉพาะโฮสต์ ห้ามใส่ path ของ endpoint ต่อท้าย** — path ของ
+> แต่ละชุดข้อมูลอยู่ใน `botSeries.ts` แล้ว ธปท. ปิดเกตเวย์เดิม `apigw1.bot.or.th` ไปเมื่อ
+> 31 ธ.ค. 2025 และย้ายมาที่ `gateway.api.bot.or.th` (คนละตัวกับ `portal.api.bot.or.th`
+> ซึ่งเป็นเว็บไซต์สำหรับสมัครและอ่านเอกสาร) ระบบตรวจทั้งสามกรณีที่ตั้งผิดบ่อยและบอกวิธีแก้
 > รายละเอียดอยู่ที่ [`docs/06-deployment.md` §6.9](docs/06-deployment.md)
 
 ข้อกำหนดด้านความปลอดภัยที่ระบบบังคับไว้:
@@ -308,7 +308,7 @@ get_bot_economic_indicator(indicator, start, end)
 ## ชุดทดสอบ
 
 ```bash
-npm test          # 297 เทสต์ (server 280 + web 17)
+npm test          # 299 เทสต์ (server 282 + web 17)
 npm run typecheck # ตรวจชนิดข้อมูลทุก workspace
 npm run build     # สร้างของจริงทั้งหมด
 ```

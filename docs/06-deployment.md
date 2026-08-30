@@ -175,13 +175,36 @@ image จัดการให้แล้ว: build แบบหลายขั
 และ **ปิดเกตเวย์เดิม `apigw1.bot.or.th` ไปแล้วเมื่อ 31 ธ.ค. 2025** โฮสต์เดิมจึงหาไม่เจอ
 ใน DNS อีกต่อไป — อาการที่เห็นคือ `fetch failed` / `ENOTFOUND`
 
-ที่อยู่ของเกตเวย์ใหม่อยู่ในเอกสาร API หลัง login ของพอร์ทัล และขึ้นกับชุดข้อมูลที่แต่ละบัญชี
-subscribe ไว้ ระบบจึงไม่เดาให้ ต้องนำมาตั้งเอง:
+เกตเวย์ของระบบใหม่คือ **`gateway.api.bot.or.th`** (คนละตัวกับ `portal.api.bot.or.th`
+ซึ่งเป็นเว็บไซต์สำหรับสมัครและอ่านเอกสาร) ตั้งค่าเป็น:
 
 ```bash
-BOT_API_BASE_URL=<base URL จากเอกสาร API ในพอร์ทัลของคุณ>
-BOT_API_KEY_HEADER=<ชื่อ header ที่เอกสารระบุ>
+BOT_API_BASE_URL=https://gateway.api.bot.or.th
+BOT_API_KEY_HEADER=X-IBM-Client-Id
 ```
+
+> ⚠️ **ใส่เฉพาะโฮสต์ อย่าใส่ path ของ endpoint ต่อท้าย** — path ของแต่ละชุดข้อมูลอยู่ใน
+> [`botSeries.ts`](../apps/server/src/services/bot/botSeries.ts) แล้ว ถ้าวาง URL เต็ม
+> อย่าง `https://gateway.api.bot.or.th/LoanRate/v2/loan_rate/` เป็น base URL ระบบจะต่อ
+> path ซ้ำสองชั้นและได้ 404 — กรณีนี้ถูกตรวจจับและบอกค่าที่ถูกต้องให้แล้ว
+>
+> | | ค่า |
+> |---|---|
+> | ✅ | `https://gateway.api.bot.or.th` |
+> | ❌ | `https://gateway.api.bot.or.th/LoanRate/v2/loan_rate/` (path ซ้ำ) |
+> | ❌ | `https://portal.api.bot.or.th` (เว็บไซต์ ไม่ใช่ API — จะได้ HTML กลับมา) |
+> | ❌ | `https://apigw1.bot.or.th/bot/public` (เกตเวย์เดิมที่ปิดไปแล้ว) |
+
+ยืนยันด้วยตัวเองก่อนตั้งค่าได้ด้วยคำสั่งเดียว:
+
+```bash
+curl -i -H "X-IBM-Client-Id: <คีย์ของคุณ>" -H "accept: application/json" \
+  "https://gateway.api.bot.or.th/LoanRate/v2/loan_rate/?start_period=2026-08-01&end_period=2026-08-30"
+```
+
+- ได้ JSON → base URL ถูกแล้ว
+- ได้ `401` / `403` → base URL ถูก แต่ต้องไป subscribe ชุดข้อมูลนั้น หรือชื่อ header ไม่ตรง
+- ได้ HTML → ยังชี้ผิดที่
 
 สิ่งที่ต้องตรวจในเอกสารของพอร์ทัลใหม่มีสามอย่าง เพราะ ธปท. แจ้งว่าทั้ง endpoint และ
 วิธียืนยันตัวตนอาจเปลี่ยน:

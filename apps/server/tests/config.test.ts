@@ -115,6 +115,27 @@ describe('validateBotBaseUrl', () => {
     expect(validateBotBaseUrl('   ')).toBeNull();
   });
 
+  it('ยอมรับที่อยู่เกตเวย์ที่ไม่มี path ต่อท้าย', () => {
+    expect(validateBotBaseUrl('https://gateway.api.bot.or.th')).toBeNull();
+    expect(validateBotBaseUrl('https://gateway.api.bot.or.th/')).toBeNull();
+  });
+
+  it('จับกรณีคัดลอก URL เต็มของ endpoint มาวางเป็น base URL', () => {
+    // ผู้ใช้มักคัดลอกทั้งก้อนจากหน้าเอกสาร ซึ่งจะทำให้ path ซ้ำสองชั้นและได้ 404
+    for (const endpoint of [
+      'https://gateway.api.bot.or.th/LoanRate/v2/loan_rate/',
+      'https://gateway.api.bot.or.th/PolicyRate/v3/policy_rate',
+      'https://gateway.api.bot.or.th/DepositRate/v2/deposit_rate/',
+      'https://gateway.api.bot.or.th/BIBOR/v2/bibor/',
+      'https://gateway.api.bot.or.th/Stat-ExchangeRate/v2/DAILY_AVG_EXG_RATE/',
+    ]) {
+      const message = validateBotBaseUrl(endpoint);
+      expect(message).toContain('endpoint');
+      // ต้องบอกค่าที่ถูกต้องให้ด้วย ไม่ใช่แค่บอกว่าผิด
+      expect(message).toContain('https://gateway.api.bot.or.th');
+    }
+  });
+
   it('บอกได้ว่าชี้ไปยังเกตเวย์เดิมที่ ธปท. ปิดไปแล้ว', () => {
     // สาเหตุจริงของอาการ "fetch failed" ที่ผู้ใช้เจอ — โฮสต์นี้ไม่มีใน DNS อีกแล้ว
     for (const host of RETIRED_BOT_HOSTS) {

@@ -102,8 +102,30 @@ export function validateBotBaseUrl(value: string): string | null {
     );
   }
 
+  // ผู้ใช้มักคัดลอก URL เต็มของ endpoint จากหน้าเอกสารมาวางเป็น base URL
+  // ซึ่งจะทำให้ path ซ้ำสองชั้น เช่น /LoanRate/v2/loan_rate/LoanRate/v2/loan_rate/
+  const endpointMarker = parsed.pathname.match(ENDPOINT_PATH_PATTERN);
+  if (endpointMarker) {
+    const trimmed = `${parsed.protocol}//${parsed.host}${parsed.pathname.slice(
+      0,
+      endpointMarker.index,
+    )}`.replace(/\/+$/, '');
+    return (
+      `ค่านี้เป็น URL ของ endpoint ไม่ใช่ base URL — มี "${endpointMarker[0]}" ต่อท้ายอยู่ ` +
+      `ถ้าใช้ทั้งก้อน path จะซ้ำสองชั้นและได้ 404 ให้ตัดส่วนของ endpoint ออก เหลือแค่ "${trimmed}"`
+    );
+  }
+
   return null;
 }
+
+/**
+ * ชิ้นส่วน path ที่บ่งบอกว่าเป็น endpoint ของชุดข้อมูล ไม่ใช่ base URL
+ * (สอดคล้องกับ path ที่ลงทะเบียนไว้ใน botSeries.ts แต่ไม่ import เข้ามาเพราะ
+ * env.ts เป็นชั้นล่างสุดที่ไม่ควรผูกกับโมดูลอื่น)
+ */
+const ENDPOINT_PATH_PATTERN =
+  /\/(PolicyRate|LoanRate|DepositRate|BIBOR|Stat-[A-Za-z]+)\/v\d/i;
 
 export interface AppEnv {
   nodeEnv: string;
