@@ -6,7 +6,12 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BOT_GATEWAY_URL, RETIRED_BOT_HOSTS, validateBotBaseUrl } from '../src/config/env.js';
+import {
+  BOT_GATEWAY_URL,
+  RETIRED_BOT_HOSTS,
+  unwrap,
+  validateBotBaseUrl,
+} from '../src/config/env.js';
 import { LiveBotClient } from '../src/services/bot/botClient.js';
 import { BOT_SERIES } from '../src/services/bot/botSeries.js';
 import { BotApiError } from '../src/services/bot/botTypes.js';
@@ -220,5 +225,38 @@ describe('LiveBotClient.buildUrl เมื่อตั้งค่า base URL �
     await expect(client.fetchSeries(BOT_SERIES.policy_rate, {})).rejects.toThrow(
       /BOT_API_BASE_URL/,
     );
+  });
+});
+
+describe('ตัดอักขระที่ครอบค่ามาโดยไม่ตั้งใจ', () => {
+  it('ตัดวงเล็บ < > ที่มาจากตัวอย่างในเอกสาร', async () => {
+    // เอกสารรุ่นแรกเขียนว่า BOT_API_KEY=<Client ID ของคุณ> คนจึงวางวงเล็บติดมาด้วย
+    // แล้วเกตเวย์ตอบ 403 โดยไม่บอกว่าเป็นเพราะคีย์เพี้ยน
+    const env = await loadEnv({ BOT_API_KEY: '<eyJvcmciOiJhYmMxMjM>' });
+    expect(env.botApiKey).toBe('eyJvcmciOiJhYmMxMjM');
+    expect(env.botApiKeyWrapper).toBe('<>');
+  });
+
+  it('ตัดได้ทั้งเครื่องหมายคำพูดและวงเล็บที่ครอบซ้อนกัน', () => {
+    expect(unwrap('"<abc123>"')).toEqual({ value: 'abc123', trimmed: '"" <>' });
+    expect(unwrap("  'abc123'  ")).toEqual({ value: 'abc123', trimmed: '\'\'' });
+  });
+
+  it('ไม่แตะค่าที่สะอาดอยู่แล้ว', async () => {
+    const env = await loadEnv({ BOT_API_KEY: 'eyJvcmciOiJhYmMxMjM' });
+    expect(env.botApiKey).toBe('eyJvcmciOiJhYmMxMjM');
+    expect(env.botApiKeyWrapper).toBeNull();
+  });
+
+  it('ไม่ตัดอักขระที่บังเอิญอยู่ข้างเดียว', () => {
+    expect(unwrap('<abc123').value).toBe('<abc123');
+    expect(unwrap('abc>').value).toBe('abc>');
+    expect(unwrap('a<b>c').value).toBe('a<b>c');
+  });
+
+  it('ใช้กับ URL ด้วย เพราะวางแบบเดียวกันได้', async () => {
+    const env = await loadEnv({ BOT_API_BASE_URL: '<https://gateway.api.bot.or.th>' });
+    expect(env.botApiBaseUrl).toBe('https://gateway.api.bot.or.th');
+    expect(env.botApiBaseUrlError).toBeNull();
   });
 });

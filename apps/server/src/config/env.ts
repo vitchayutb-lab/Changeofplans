@@ -39,16 +39,37 @@ function findRepoRootOffset(): string {
 function str(key: string, fallback = ''): string {
   const raw = process.env[key];
   if (raw === undefined) return fallback;
+  const { value } = unwrap(raw);
+  return value === '' ? fallback : value;
+}
 
+/** คู่อักขระที่ครอบค่ามาโดยไม่ได้ตั้งใจ — ไม่มีคีย์หรือ URL จริงที่ขึ้นต้นและลงท้ายแบบนี้ */
+const WRAPPERS: ReadonlyArray<readonly [string, string]> = [
+  ['"', '"'],
+  ["'", "'"],
+  // เอกสารรุ่นแรกของโปรเจกต์นี้เขียนตัวอย่างเป็น <Client ID ของคุณ> คนจึงวางวงเล็บติดมาด้วย
+  // แล้วได้ 403 ที่อ่านไม่ออก เพราะคีย์ที่ส่งไปมี < > ปนอยู่
+  ['<', '>'],
+];
+
+/** ตัดอักขระที่ครอบค่าออก และบอกด้วยว่าได้ตัดอะไรไปหรือเปล่า */
+export function unwrap(raw: string): { value: string; trimmed: string | null } {
   let value = raw.trim();
-  if (value.length >= 2) {
-    const first = value[0];
-    const last = value[value.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      value = value.slice(1, -1).trim();
+  let trimmed: string | null = null;
+
+  // วนซ้ำเพราะครอบซ้อนกันได้ เช่น "<key>" ที่มาจากการวางทับกันสองรอบ
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [open, close] of WRAPPERS) {
+      if (value.length >= 2 && value.startsWith(open) && value.endsWith(close)) {
+        value = value.slice(1, -1).trim();
+        trimmed = trimmed === null ? `${open}${close}` : `${trimmed} ${open}${close}`;
+        changed = true;
+      }
     }
   }
-  return value === '' ? fallback : value;
+  return { value, trimmed };
 }
 
 function num(key: string, fallback: number): number {
@@ -162,6 +183,8 @@ export interface AppEnv {
 
   /** ความลับ — ห้ามส่งออกนอกเซิร์ฟเวอร์ */
   botApiKey: string;
+  /** อักขระที่ครอบ BOT_API_KEY มาและถูกตัดออก (null = ค่าสะอาดอยู่แล้ว) */
+  botApiKeyWrapper: string | null;
   botApiBaseUrl: string;
   /** ข้อความอธิบายเมื่อ BOT_API_BASE_URL ตั้งค่าไว้ไม่ถูก (null = ใช้ได้) */
   botApiBaseUrlError: string | null;
@@ -200,6 +223,7 @@ export const env: AppEnv = {
   rateLimitExpensiveMax: num('RATE_LIMIT_EXPENSIVE_MAX', 20),
 
   botApiKey: str('BOT_API_KEY'),
+  botApiKeyWrapper: unwrap(process.env.BOT_API_KEY ?? '').trimmed,
   botApiBaseUrl: str('BOT_API_BASE_URL', BOT_GATEWAY_URL),
   botApiBaseUrlError: validateBotBaseUrl(str('BOT_API_BASE_URL', BOT_GATEWAY_URL)),
   // เกตเวย์ใหม่ใช้ header ชื่อ Authorization โดยส่งโทเคนดิบ ไม่มีคำว่า Bearer นำหน้า
