@@ -11,12 +11,16 @@ import { FundingPage } from './pages/FundingPage';
 import { StartupPage } from './pages/StartupPage';
 import { AdvisorPage } from './pages/AdvisorPage';
 import { DeveloperPage } from './pages/DeveloperPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 import './styles/app.css';
 
 const router = createBrowserRouter([
   {
     path: '/',
     element: <App />,
+    // ไม่มีตัวนี้ react-router จะแสดงหน้าข้อผิดพลาดของตัวเองที่พูดกับนักพัฒนา
+    // ซึ่งไม่ควรโผล่บนเว็บที่เปิดให้คนทั่วไปใช้
+    errorElement: <NotFoundPage />,
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'market', element: <MarketDataPage /> },
@@ -26,6 +30,8 @@ const router = createBrowserRouter([
       { path: 'funding', element: <FundingPage /> },
       { path: 'advisor', element: <AdvisorPage /> },
       { path: 'developer', element: <DeveloperPage /> },
+      // ที่อยู่ที่ไม่ตรงกับหน้าใด ยังคงเห็นเมนูด้านข้างและกลับไปหน้าอื่นได้
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
 ]);
