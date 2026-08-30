@@ -170,9 +170,15 @@ export class LiveBotClient implements BotApiClient {
         signal: controller.signal,
       });
 
+      // อ่าน body ครั้งเดียวแล้วใช้ได้ทั้งเส้นทางสำเร็จและเส้นทางผิดพลาด
+      // ข้อความที่ ธปท. ส่งมาในตัว body คือสิ่งที่บอกสาเหตุได้ดีที่สุด ทิ้งไปไม่ได้
+      const text = await response.text();
+
       if (response.status === 401 || response.status === 403) {
         throw new BotApiError(
-          `BOT rejected the API key (HTTP ${response.status})`,
+          `ธปท. ปฏิเสธคำขอ (HTTP ${response.status})${upstreamDetail(text)}` +
+            ' — ตรวจว่าคีย์ถูกต้อง ไม่มีอักขระเกินติดมา (เช่น < > หรือเครื่องหมายคำพูด)' +
+            ' และบัญชีของคุณ subscribe ชุดข้อมูลนี้ไว้แล้วในพอร์ทัล',
           'auth',
           response.status,
         );
@@ -182,20 +188,33 @@ export class LiveBotClient implements BotApiClient {
         if (Number.isFinite(retryAfter) && retryAfter > 0) {
           await sleep(Math.min(5000, retryAfter * 1000));
         }
-        throw new BotApiError('BOT rate limit reached (HTTP 429)', 'rate_limit', 429);
+        throw new BotApiError(
+          `BOT rate limit reached (HTTP 429)${upstreamDetail(text)}`,
+          'rate_limit',
+          429,
+        );
       }
       if (response.status >= 500) {
-        throw new BotApiError(`BOT server error (HTTP ${response.status})`, 'server', response.status);
+        throw new BotApiError(
+          `BOT server error (HTTP ${response.status})${upstreamDetail(text)}`,
+          'server',
+          response.status,
+        );
       }
       if (!response.ok) {
-        throw new BotApiError(`BOT returned HTTP ${response.status}`, 'response', response.status);
+        throw new BotApiError(
+          `BOT returned HTTP ${response.status}${upstreamDetail(text)}`,
+          'response',
+          response.status,
+        );
       }
 
-      const text = await response.text();
       try {
         return JSON.parse(text) as unknown;
       } catch {
-        throw new BotApiError('BOT returned a body that is not valid JSON', 'response');
+        // ตอบ 200 แต่ไม่ใช่ JSON แปลว่าต่อถึงเซิร์ฟเวอร์แล้ว แต่ไม่ใช่ endpoint ของ API
+        // ต้องบอกว่าได้อะไรกลับมา ไม่งั้นผู้ใช้ไม่มีทางรู้ว่าชี้ผิดที่ตรงไหน
+        throw new BotApiError(describeNonJson(url, response.headers.get('content-type'), text), 'response');
       }
     } finally {
       clearTimeout(timer);
@@ -207,6 +226,70 @@ export class LiveBotClient implements BotApiClient {
  * แปลง error ใด ๆ ให้เป็น BotApiError และล้างค่า secret ออกจากข้อความ
  * (error ของ fetch บางกรณีแนบ URL หรือ header กลับมาด้วย)
  */
+/**
+ * ดึงข้อความอธิบายจาก body ของคำตอบที่เป็นข้อผิดพลาด
+ *
+ * เกตเวย์ของ ธปท. ส่งเหตุผลจริงมาใน body เช่น {"error":"Access to this API has been
+ * disallowed"} ซึ่งแยกแยะได้ว่า "คีย์ผิด" หรือ "คีย์ถูกแต่ยังไม่ได้ subscribe ชุดนี้"
+ * ต่างจากสถานะ 403 เปล่า ๆ ที่บอกไม่ได้
+ */
+export function upstreamDetail(body: string): string {
+  const trimmed = body.trim();
+  if (trimmed === '') return '';
+
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    for (const key of ['error', 'message', 'moreInformation', 'httpMessage', 'description']) {
+      const value = parsed[key];
+      if (typeof value === 'string' && value.trim() !== '') {
+        return `: ${value.trim().slice(0, 200)}`;
+      }
+    }
+  } catch {
+    // ไม่ใช่ JSON — ยกข้อความดิบมาแบบสั้น ๆ
+  }
+
+  return `: ${trimmed.replace(/\s+/g, ' ').slice(0, 200)}`;
+}
+
+/**
+ * อธิบายว่าปลายทางตอบอะไรกลับมาเมื่อไม่ใช่ JSON
+ *
+ * กรณีที่พบบ่อยที่สุดคือ BOT_API_BASE_URL ชี้ไปที่ "เว็บพอร์ทัล" แทนที่จะเป็น
+ * "เกตเวย์ของ API" ซึ่งจะตอบหน้า HTML กลับมาพร้อมสถานะ 200 ทำให้ดูเหมือนเรียกสำเร็จ
+ */
+export function describeNonJson(
+  url: string,
+  contentType: string | null,
+  body: string,
+): string {
+  // ตัดช่องว่างซ้อนออกและจำกัดความยาว เพื่อให้ข้อความยังอ่านได้ในแบนเนอร์
+  const snippet = body.replace(/\s+/g, ' ').trim().slice(0, 160);
+  const looksHtml = /^\s*<(!doctype|html|\?xml)/i.test(body) || /text\/html/i.test(contentType ?? '');
+
+  const parts = [
+    'ปลายทางตอบกลับมาแต่ไม่ใช่ JSON',
+    `(content-type: ${contentType ?? 'ไม่ระบุ'})`,
+  ];
+
+  if (looksHtml) {
+    parts.push(
+      '— ได้หน้าเว็บ (HTML) กลับมา ซึ่งแปลว่า BOT_API_BASE_URL ชี้ไปที่หน้าเว็บพอร์ทัล ' +
+        'ไม่ใช่ที่อยู่ของเกตเวย์ API ให้ดู base URL ที่ระบุไว้ในเอกสาร API ของชุดข้อมูลที่คุณ subscribe',
+    );
+    if (/login|sign\s*in|เข้าสู่ระบบ/i.test(snippet)) {
+      parts.push('(หน้าที่ได้มาดูเหมือนหน้าเข้าสู่ระบบ)');
+    }
+  } else {
+    parts.push('— ตรวจว่า base URL และ path ตรงกับเอกสารของพอร์ทัลหรือไม่');
+  }
+
+  parts.push(`URL ที่เรียก: ${url}`);
+  if (snippet) parts.push(`สิ่งที่ได้กลับมา: ${snippet}${body.length > 160 ? '…' : ''}`);
+
+  return parts.join(' ');
+}
+
 /**
  * คำอธิบายภาษาคนของรหัสข้อผิดพลาดระดับเครือข่าย
  * fetch ของ Node คืนแค่ "fetch failed" ซึ่งไม่ช่วยอะไรเลย สาเหตุจริงอยู่ใน error.cause

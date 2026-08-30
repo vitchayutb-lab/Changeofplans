@@ -73,22 +73,37 @@ export function flattenRows(rows: Row[], nestedKeys: string[]): Row[] {
 }
 
 /** อ่านค่าตัวเลขจากคอลัมน์แรกที่มีอยู่จริงและแปลงเป็นตัวเลขได้ */
-function readNumber(row: Row, candidates: string[]): number | null {
-  const lowered = new Map<string, unknown>();
-  for (const [key, value] of Object.entries(row)) lowered.set(key.toLowerCase(), value);
+function readNumber(row: Row, candidates: string[], zeroIsMissing = false): number | null {
+  const lowered = lowerKeys(row);
 
   for (const candidate of candidates) {
     const raw = lowered.get(candidate.toLowerCase());
     if (raw === undefined || raw === null || raw === '') continue;
     const parsed = typeof raw === 'number' ? raw : Number(String(raw).replace(/,/g, ''));
-    if (Number.isFinite(parsed)) return parsed;
+    if (!Number.isFinite(parsed)) continue;
+    if (zeroIsMissing && parsed === 0) continue;
+    return parsed;
   }
   return null;
 }
 
-function readString(row: Row, candidates: string[]): string | null {
+function lowerKeys(row: Row): Map<string, unknown> {
   const lowered = new Map<string, unknown>();
   for (const [key, value] of Object.entries(row)) lowered.set(key.toLowerCase(), value);
+  return lowered;
+}
+
+/** แถวนี้อยู่ในกลุ่มที่ชุดข้อมูลนี้สนใจหรือไม่ (เช่น เฉพาะธนาคารพาณิชย์ไทย) */
+export function matchesRowFilter(row: Row, filter: BotSeriesDescriptor['rowFilter']): boolean {
+  if (!filter) return true;
+  const group = readString(row, filter.field);
+  // ไม่มีคอลัมน์กลุ่มเลย = ผลลัพธ์ไม่ได้แยกกลุ่ม จึงรับไว้ทั้งหมดแทนที่จะทิ้งข้อมูลทิ้ง
+  if (group === null) return true;
+  return filter.accept.some((accepted) => accepted.toLowerCase() === group.toLowerCase());
+}
+
+function readString(row: Row, candidates: string[]): string | null {
+  const lowered = lowerKeys(row);
 
   for (const candidate of candidates) {
     const raw = lowered.get(candidate.toLowerCase());
@@ -124,7 +139,26 @@ export function normalizeSeries(
   payload: unknown,
 ): { observations: BotObservation[]; lastUpdated: string | null } {
   const detail = extractDetail(payload);
-  const rows = flattenRows(detail, descriptor.nestedArrayKeys);
+  const flattened = flattenRows(detail, descriptor.nestedArrayKeys);
+  const rows = flattened.filter((row) => matchesRowFilter(row, descriptor.rowFilter));
+
+  // ผลลัพธ์มีแถวอยู่ แต่ตัวคัดกรองไม่รับสักแถว = ค่าในคอลัมน์กลุ่มเปลี่ยนไปจากที่ทะเบียนรู้จัก
+  // ถ้าปล่อยผ่านจะกลายเป็น "ไม่มีข้อมูล" เงียบ ๆ ทั้งที่ ธปท. ส่งข้อมูลมาครบ
+  if (flattened.length > 0 && rows.length === 0 && descriptor.rowFilter) {
+    const seen = [
+      ...new Set(
+        flattened
+          .map((row) => readString(row, descriptor.rowFilter!.field))
+          .filter((value): value is string => value !== null),
+      ),
+    ].slice(0, 5);
+    throw new BotApiError(
+      `BOT response for "${descriptor.id}" had no rows in ${descriptor.rowFilter.label} ` +
+        `(expected ${descriptor.rowFilter.accept.join(' / ')}; got: ${seen.join(' / ') || 'ไม่มีค่า'}) ` +
+        '— ปรับ rowFilter ใน botSeries.ts ให้ตรงกับผลลัพธ์จริง',
+      'response',
+    );
+  }
 
   // (period|dimension) -> ผลรวมและจำนวน เพื่อหาค่าเฉลี่ย
   const buckets = new Map<string, { period: string; dimension: string; sum: number; n: number }>();
@@ -139,23 +173,37 @@ export function normalizeSeries(
       // ชุดที่มิติมาจากคอลัมน์ เช่น currency_id
       const dimension = readString(row, [descriptor.dimensionField]);
       if (!dimension) continue;
-      const value = readNumber(row, descriptor.valueFields.default ?? ['value']);
+      const value = readNumber(
+        row,
+        descriptor.valueFields.default ?? ['value'],
+        descriptor.treatZeroAsMissing,
+      );
       if (value === null) continue;
       addToBucket(buckets, period, dimension.toUpperCase(), value);
       continue;
     }
 
     for (const [dimension, candidates] of Object.entries(descriptor.valueFields)) {
-      const value = readNumber(row, candidates);
+      const value = readNumber(row, candidates, descriptor.treatZeroAsMissing);
       if (value === null) continue;
       addToBucket(buckets, period, dimension, value);
     }
   }
 
   if (buckets.size === 0) {
+    // BOT ตอบ 200 พร้อม data_detail ว่าง เมื่อช่วงวันที่ที่ขอไม่มีวันทำการ
+    // (เช่น ขอเฉพาะวันเสาร์อาทิตย์) — นั่นคือคำตอบที่ถูกต้อง ไม่ใช่ผลลัพธ์ที่อ่านไม่ออก
+    if (detail.length === 0) {
+      return { observations: [], lastUpdated: extractLastUpdated(payload) };
+    }
+
+    // มีแถวข้อมูลจริงแต่อ่านค่าไม่ได้ = ชื่อคอลัมน์ไม่ตรงกับที่ทะเบียนคาดไว้
+    const seenColumns = [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 20);
     throw new BotApiError(
       `BOT response for "${descriptor.id}" contained no readable values ` +
-        `(expected one of: ${Object.values(descriptor.valueFields).flat().join(', ')})`,
+        `(expected one of: ${Object.values(descriptor.valueFields).flat().join(', ')}; ` +
+        `got columns: ${seenColumns.join(', ') || 'ไม่มีคอลัมน์'}) ` +
+        '— ปรับ valueFields/nestedArrayKeys ใน botSeries.ts ให้ตรงกับผลลัพธ์จริง',
       'response',
     );
   }

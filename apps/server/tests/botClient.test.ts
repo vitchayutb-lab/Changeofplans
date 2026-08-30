@@ -1,7 +1,12 @@
 /** เทสต์ตัวเชื่อม BOT API จริง โดยฉีด fetch ปลอมเข้าไป — ไม่มีการยิงเครือข่ายจริง */
 
 import { describe, expect, it, vi } from 'vitest';
-import { LiveBotClient, toBotError } from '../src/services/bot/botClient.js';
+import {
+  describeNonJson,
+  LiveBotClient,
+  toBotError,
+  upstreamDetail,
+} from '../src/services/bot/botClient.js';
 import { BOT_SERIES } from '../src/services/bot/botSeries.js';
 import { BotApiError } from '../src/services/bot/botTypes.js';
 
@@ -76,12 +81,47 @@ describe('LiveBotClient.fetchSeries', () => {
     expect(headers.accept).toBe('application/json');
   });
 
+  it('ค่าเริ่มต้นส่งคีย์ผ่าน header ชื่อ Authorization ตามเกตเวย์ใหม่ของ ธปท.', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(policyPayload()));
+    // ไม่ระบุ apiKeyHeader จึงใช้ค่าเริ่มต้นจาก env
+    const instance = new LiveBotClient({
+      baseUrl: 'https://gateway.example.test',
+      apiKey: API_KEY,
+      maxRps: 0,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    await instance.fetchSeries(BOT_SERIES.policy_rate, {});
+
+    const headers = (fetchImpl.mock.calls[0]![1] as RequestInit).headers as Record<string, string>;
+    // ส่งโทเคนดิบ ไม่เติมคำว่า Bearer นำหน้า ตามที่เอกสารของพอร์ทัลระบุ
+    expect(headers.Authorization).toBe(API_KEY);
+    expect(headers.Authorization).not.toContain('Bearer');
+  });
+
   it('โยนข้อผิดพลาดชนิด auth เมื่อ BOT ตอบ 401 และไม่ลองซ้ำ', async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ message: 'unauthorized' }, { status: 401 }));
     await expect(
       client(fetchImpl as unknown as typeof fetch).fetchSeries(BOT_SERIES.policy_rate, {}),
     ).rejects.toMatchObject({ reason: 'auth' });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('ยกเหตุผลที่ ธปท. ส่งมาใน body ของ 403 ขึ้นมาแสดง', async () => {
+    // เกตเวย์จริงตอบแบบนี้เมื่อคีย์ใช้ได้แต่ยังไม่ได้ subscribe ชุดข้อมูลนั้น
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ error: 'Access to this API has been disallowed' }, { status: 403 }),
+    );
+
+    try {
+      await client(fetchImpl as unknown as typeof fetch).fetchSeries(BOT_SERIES.policy_rate, {});
+      expect.unreachable('ควรโยนข้อผิดพลาด');
+    } catch (error) {
+      const message = (error as Error).message;
+      expect(message).toContain('Access to this API has been disallowed');
+      expect(message).toContain('subscribe');
+      // เตือนเรื่องอักขระเกินที่ติดมากับคีย์ ซึ่งเป็นอีกสาเหตุของ 403
+      expect(message).toContain('< >');
+    }
   });
 
   it('รู้จักการถูกจำกัดอัตราเรียก (429)', async () => {
@@ -116,6 +156,27 @@ describe('LiveBotClient.fetchSeries', () => {
     ).rejects.toMatchObject({ reason: 'response' });
   });
 
+  it('บอกด้วยว่าได้อะไรกลับมา เมื่อปลายทางตอบ 200 แต่ไม่ใช่ JSON', async () => {
+    // อาการนี้เกิดเมื่อ base URL ชี้ไปที่หน้าเว็บพอร์ทัลแทนที่จะเป็นเกตเวย์ API
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response('<!doctype html><html><body>BOT API Developer Portal</body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }),
+    );
+
+    try {
+      await client(fetchImpl as unknown as typeof fetch).fetchSeries(BOT_SERIES.policy_rate, {});
+      expect.unreachable('ควรโยนข้อผิดพลาด');
+    } catch (error) {
+      const message = (error as Error).message;
+      expect(message).toContain('text/html');
+      expect(message).toContain('BOT_API_BASE_URL');
+      expect(message).toContain('Developer Portal');
+    }
+  });
+
   it('ปฏิเสธทันทีเมื่อยังไม่ได้ตั้งค่า API key', async () => {
     const fetchImpl = vi.fn();
     await expect(
@@ -144,6 +205,68 @@ describe('LiveBotClient.fetchSeries', () => {
         {},
       ),
     ).rejects.toMatchObject({ reason: 'timeout' });
+  });
+});
+
+describe('upstreamDetail', () => {
+  it('ดึงข้อความจากฟิลด์ error ของ JSON', () => {
+    expect(upstreamDetail('{"error":"Access to this API has been disallowed"}')).toContain(
+      'Access to this API has been disallowed',
+    );
+  });
+
+  it('รองรับชื่อฟิลด์อื่นที่เกตเวย์อาจใช้', () => {
+    expect(upstreamDetail('{"message":"Invalid credentials"}')).toContain('Invalid credentials');
+    expect(upstreamDetail('{"moreInformation":"see docs"}')).toContain('see docs');
+  });
+
+  it('body ที่ไม่ใช่ JSON ก็ยกข้อความมาแบบย่อ', () => {
+    expect(upstreamDetail('Forbidden by policy')).toContain('Forbidden by policy');
+  });
+
+  it('body ว่างไม่เพิ่มอะไรต่อท้าย', () => {
+    expect(upstreamDetail('')).toBe('');
+    expect(upstreamDetail('   ')).toBe('');
+  });
+
+  it('จำกัดความยาวไม่ให้ข้อความยาวเกินจนอ่านไม่ไหว', () => {
+    expect(upstreamDetail('x'.repeat(1000)).length).toBeLessThan(210);
+  });
+});
+
+describe('describeNonJson', () => {
+  const url = 'https://gateway.example.test/bot/public/PolicyRate/v3/policy_rate';
+
+  it('ชี้ว่าเป็นหน้าเว็บ ไม่ใช่ API เมื่อได้ HTML กลับมา', () => {
+    const message = describeNonJson(url, 'text/html', '<!doctype html><html>...</html>');
+    expect(message).toContain('หน้าเว็บ');
+    expect(message).toContain('BOT_API_BASE_URL');
+  });
+
+  it('จับได้แม้ content-type ไม่ได้บอกว่าเป็น HTML', () => {
+    expect(describeNonJson(url, null, '<html><body>hi</body></html>')).toContain('หน้าเว็บ');
+  });
+
+  it('บอกเพิ่มเมื่อสิ่งที่ได้มาดูเหมือนหน้าเข้าสู่ระบบ', () => {
+    const message = describeNonJson(url, 'text/html', '<html><body>Please sign in</body></html>');
+    expect(message).toContain('เข้าสู่ระบบ');
+  });
+
+  it('body ที่ไม่ใช่ HTML ก็ยังบอกให้ตรวจ base URL และ path', () => {
+    const message = describeNonJson(url, 'text/plain', 'Not Found');
+    expect(message).toContain('path');
+    expect(message).toContain('Not Found');
+  });
+
+  it('ตัดความยาวและช่องว่างซ้อนของ body ที่ยกมาแสดง', () => {
+    const message = describeNonJson(url, 'text/html', '<html>\n\n   ' + 'x'.repeat(500));
+    expect(message).toContain('…');
+    expect(message).not.toContain('\n');
+    expect(message.length).toBeLessThan(800);
+  });
+
+  it('ระบุ URL ที่เรียกไปเพื่อให้เทียบกับเอกสารได้', () => {
+    expect(describeNonJson(url, 'text/html', '<html></html>')).toContain(url);
   });
 });
 

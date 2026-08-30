@@ -203,6 +203,14 @@ export class BotService {
     const result = await client.fetchSeries(descriptor, params);
     const fetchedAt = new Date().toISOString();
 
+    // ดึงสำเร็จแต่ไม่มีข้อมูลในช่วงที่ขอ — ต้องบอกให้ชัด ไม่งั้นหน้าเว็บจะขึ้นขีดว่างเปล่า
+    // โดยผู้ใช้ไม่รู้ว่าเรียกไม่ติดหรือ ธปท. ไม่มีข้อมูลกันแน่
+    const emptyNotice =
+      result.observations.length === 0 && source === 'bot'
+        ? `ดึงข้อมูลจาก ธปท. สำเร็จ แต่ไม่มีข้อมูลของ "${descriptor.titleTh}" ในช่วง ` +
+          `${params.start ?? '-'} ถึง ${params.end ?? '-'} (อาจไม่มีวันทำการในช่วงนี้)`
+        : null;
+
     const series: BotSeries = {
       seriesId: descriptor.id,
       title: descriptor.title,
@@ -217,7 +225,7 @@ export class BotService {
         fetchedAt,
         stale: false,
         cache: { hit: false, ageSeconds: 0, ttlSeconds: descriptor.ttlSeconds },
-        notice,
+        notice: notice ?? emptyNotice,
       },
     };
 
