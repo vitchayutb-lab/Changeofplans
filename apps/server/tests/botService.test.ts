@@ -381,6 +381,7 @@ describe('แหล่งอัตราแลกเปลี่ยนของ�
 
   it('คงชุด Stat-ExchangeRate ไว้ในทะเบียนสำหรับผู้ที่ subscribe แยก', () => {
     expect(BOT_SERIES.fx_average.dimensions).toContain('EUR');
-    expect(BOT_SERIES.spot_rate.path).toBe('/Stat-SpotRate/v2/SPOTRATE');
+    // path ตามบรรทัด GET ในแท็บ API specification ซึ่งมี slash ปิดท้าย
+    expect(BOT_SERIES.spot_rate.path).toBe('/Stat-SpotRate/v2/SPOTRATE/');
   });
 })

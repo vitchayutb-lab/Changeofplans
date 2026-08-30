@@ -8,7 +8,7 @@ import {
   upstreamDetail,
   withSeriesContext,
 } from '../src/services/bot/botClient.js';
-import { BOT_SERIES } from '../src/services/bot/botSeries.js';
+import { BOT_SERIES, listSeriesDescriptors } from '../src/services/bot/botSeries.js';
 import { BotApiError } from '../src/services/bot/botTypes.js';
 
 const API_KEY = 'test-client-id-0123456789';
@@ -377,5 +377,34 @@ describe('บอกว่าชุดข้อมูลไหนที่เร�
     expect(decorated.reason).toBe('auth');
     expect(decorated.status).toBe(403);
     expect(decorated.retryable).toBe(false);
+  });
+});
+
+describe('path ของทุกชุดตรงกับที่เอกสาร ธปท. ระบุ', () => {
+  it('ชุดในตระกูล Stat-* ลงท้ายด้วย / ตามที่เอกสารเขียนไว้', () => {
+    // spot_rate เคยไม่มี / เพราะคัดลอกจาก "Listen path" ในหน้า Overview
+    // แต่บรรทัด GET ในแท็บ API specification เขียน .../SPOTRATE/ ไว้ชัดเจน
+    const stat = listSeriesDescriptors().filter((d) => d.path.startsWith('/Stat-'));
+    expect(stat.length).toBeGreaterThan(0);
+    for (const descriptor of stat) {
+      expect(descriptor.path.endsWith('/')).toBe(true);
+    }
+  });
+
+  it('ประกอบ URL ได้โดยไม่มี slash ซ้อนกัน', () => {
+    const client = new LiveBotClient({ baseUrl: 'https://gateway.api.bot.or.th', apiKey: 'x'.repeat(20) });
+    for (const descriptor of listSeriesDescriptors()) {
+      const url = client.buildUrl(descriptor, { start: '2026-08-01', end: '2026-08-27' });
+      expect(url).not.toMatch(/[^:]\/\//);
+    }
+  });
+
+  it('ส่งช่วงวันที่ด้วยชื่อพารามิเตอร์ที่เอกสารระบุ', () => {
+    // เอกสารของ SPOTRATE ระบุ start_period และ end_period เป็น required ทั้งคู่
+    const client = new LiveBotClient({ baseUrl: 'https://gateway.api.bot.or.th', apiKey: 'x'.repeat(20) });
+    const url = new URL(client.buildUrl(BOT_SERIES.spot_rate, { start: '2026-08-01', end: '2026-08-27' }));
+    expect(url.searchParams.get('start_period')).toBe('2026-08-01');
+    expect(url.searchParams.get('end_period')).toBe('2026-08-27');
+    expect(url.pathname).toBe('/Stat-SpotRate/v2/SPOTRATE/');
   });
 });

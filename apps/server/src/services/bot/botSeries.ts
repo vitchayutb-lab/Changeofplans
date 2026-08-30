@@ -112,7 +112,9 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     titleTh: 'อัตราแลกเปลี่ยนทันที ดอลลาร์สหรัฐ/บาท',
     // อยู่ใน Interest Rates Plan เดียวกับชุดอัตราดอกเบี้ย จึงใช้ได้ด้วยคีย์เดิม
     // ต่างจาก Stat-ExchangeRate / Stat-ReferenceRate ที่อยู่คนละ product
-    path: '/Stat-SpotRate/v2/SPOTRATE',
+    // เอกสาร API ระบุ GET .../SPOTRATE/ พร้อม slash ปิดท้าย ตรงกับชุดอื่นที่ใช้งานได้แล้ว
+    // ค่าเดิมคัดลอกมาจาก "Listen path" ในหน้า Overview ซึ่งตัด slash ออก
+    path: '/Stat-SpotRate/v2/SPOTRATE/',
     unit: 'thb_per_unit',
     ttlSeconds: 10 * MINUTE,
     supportsDateRange: true,
