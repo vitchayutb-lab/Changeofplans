@@ -202,11 +202,21 @@ export function normalizeSeries(
   // (period|dimension) -> ผลรวมและจำนวน เพื่อหาค่าเฉลี่ย
   const buckets = new Map<string, { period: string; dimension: string; sum: number; n: number }>();
 
+  // แถวหายได้สามทาง การรู้ว่าหายทางไหนคือความต่างระหว่างแก้ถูกจุดกับเดาใหม่อีกรอบ
+  let noPeriodField = 0;
+  let unparsablePeriod = 0;
+
   for (const row of rows) {
     const rawPeriod = readString(row, descriptor.periodFields);
-    if (!rawPeriod) continue;
+    if (!rawPeriod) {
+      noPeriodField += 1;
+      continue;
+    }
     const period = normalizePeriod(rawPeriod);
-    if (!period) continue;
+    if (!period) {
+      unparsablePeriod += 1;
+      continue;
+    }
 
     if (descriptor.dimensionField) {
       // ชุดที่มิติมาจากคอลัมน์ เช่น currency_id
@@ -244,13 +254,24 @@ export function normalizeSeries(
       return { observations: [], lastUpdated: extractLastUpdated(payload) };
     }
 
-    // มีแถวข้อมูลจริงแต่อ่านค่าไม่ได้ = ชื่อคอลัมน์ไม่ตรงกับที่ทะเบียนคาดไว้
+    // มีแถวข้อมูลจริงแต่ไม่เหลือค่าเลย — บอกให้ชัดว่าตกตรงไหน และแนบแถวจริงหนึ่งแถว
+    // ชื่อคอลัมน์อย่างเดียวไม่พอเมื่อคอลัมน์ตรงแล้วแต่ค่ายังอ่านไม่ได้
     const seenColumns = [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 20);
+    const droppedByPeriod = noPeriodField + unparsablePeriod;
+    const stage =
+      droppedByPeriod === rows.length
+        ? `อ่านวันที่ไม่ได้ทั้ง ${rows.length} แถว ` +
+          `(ไม่มีคอลัมน์วันที่ ${noPeriodField} · แปลงวันที่ไม่ได้ ${unparsablePeriod}) ` +
+          `— คอลัมน์วันที่ที่รองรับ: ${descriptor.periodFields.join(', ')}`
+        : `อ่านค่าไม่ได้จาก ${rows.length - droppedByPeriod} แถวที่วันที่ใช้ได้ ` +
+          `— คอลัมน์ค่าที่รองรับ: ${Object.values(descriptor.valueFields).flat().join(', ')}` +
+          (descriptor.treatZeroAsMissing ? ' (ค่า 0 ถือว่าไม่มีข้อมูล)' : '');
+
     throw new BotApiError(
-      `BOT response for "${descriptor.id}" contained no readable values ` +
-        `(expected one of: ${Object.values(descriptor.valueFields).flat().join(', ')}; ` +
-        `got columns: ${seenColumns.join(', ') || 'ไม่มีคอลัมน์'}) ` +
-        '— ปรับ valueFields/nestedArrayKeys ใน botSeries.ts ให้ตรงกับผลลัพธ์จริง',
+      `BOT response for "${descriptor.id}": ${stage} · ` +
+        `คอลัมน์ที่ได้มา: ${seenColumns.join(', ') || 'ไม่มีคอลัมน์'} · ` +
+        `ตัวอย่างแถวแรก: {${sampleRow(rows[0])}} ` +
+        '— ปรับ periodFields/valueFields ใน botSeries.ts ให้ตรงกับผลลัพธ์จริง',
       'response',
     );
   }
@@ -262,6 +283,15 @@ export function normalizeSeries(
     );
 
   return { observations, lastUpdated: extractLastUpdated(payload) };
+}
+
+/** ตัวอย่างแถวหนึ่งแถวแบบย่อ ใช้ดูว่าค่าที่ ธปท. ส่งมาหน้าตาเป็นอย่างไรจริง ๆ */
+function sampleRow(row: Row | undefined): string {
+  if (!row) return 'ไม่มีแถว';
+  return Object.entries(row)
+    .slice(0, 10)
+    .map(([key, value]) => `${key}=${JSON.stringify(value)?.slice(0, 32) ?? 'null'}`)
+    .join(', ');
 }
 
 function addToBucket(
