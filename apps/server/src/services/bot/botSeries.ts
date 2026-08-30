@@ -121,13 +121,18 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     supportsCurrency: false,
     dimensions: ['USD'],
     periodFields: ['period', 'date', 'as_of_date'],
-    // ยังไม่ได้ตรวจกับผลลัพธ์จริง — ถ้าไม่ตรง ข้อความผิดพลาดจะบอกคอลัมน์ที่ได้มาจริง
+    // ตรวจกับผลลัพธ์จริงแล้ว: ธปท. ให้ราคาสองด้าน (bid_rate, offer_rate) ไม่ใช่ค่าเดียว
     valueFields: {
-      USD: ['spot_rate', 'spotrate', 'rate', 'mid_rate', 'average', 'value', 'usd_thb'],
+      USD: ['bid_rate', 'offer_rate'],
     },
-    nestedArrayKeys: ['detail', 'observation'],
+    // ค่าที่รายงานคือ mid rate — จุดกึ่งกลางของราคาซื้อกับราคาขาย ตามธรรมเนียมตลาด
+    averageValueFields: true,
+    // ไม่มีอัตราแลกเปลี่ยนที่เป็นศูนย์จริง ค่า 0 จึงเป็นช่องว่างของวันที่ไม่มีการซื้อขาย
+    treatZeroAsMissing: true,
+    nestedArrayKeys: [],
     description:
-      'อัตราแลกเปลี่ยนทันที USD/THB ที่ ธปท. เผยแพร่ ใช้ประเมินผลกระทบค่าเงินต่อรายได้และต้นทุนนำเข้า',
+      'อัตราแลกเปลี่ยนทันที USD/THB ที่ ธปท. เผยแพร่ ค่าที่แสดงคือ mid rate ' +
+      '(กึ่งกลางราคาซื้อ-ขาย) ใช้ประเมินผลกระทบค่าเงินต่อรายได้และต้นทุนนำเข้า',
   },
 
   fx_reference: {

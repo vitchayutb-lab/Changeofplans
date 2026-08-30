@@ -313,3 +313,32 @@ describe('รูปแบบจริงของ PolicyRate/v3 และ Deposi
     expect(BOT_SERIES.deposit_rate.nestedArrayKeys).toEqual([]);
   });
 })
+
+describe('รูปแบบจริงของ Stat-SpotRate/v2', () => {
+  it('คิด mid rate จากราคาซื้อและราคาขายที่ ธปท. ให้มา', () => {
+    // คอลัมน์จริงจากการเรียก: period, bid_rate, offer_rate — ไม่มีค่ากลางให้อ่านตรง ๆ
+    const { observations } = normalizeSeries(
+      BOT_SERIES.spot_rate,
+      envelope([
+        { period: '2026-08-27', bid_rate: '34.5800', offer_rate: '34.6400' },
+        { period: '2026-08-28', bid_rate: '34.6000', offer_rate: '34.6202' },
+      ]),
+    );
+    expect(observations).toEqual([
+      { period: '2026-08-27', dimension: 'USD', value: 34.61 },
+      { period: '2026-08-28', dimension: 'USD', value: 34.6101 },
+    ]);
+  });
+
+  it('ข้ามวันที่ไม่มีการซื้อขาย แทนที่จะรายงานอัตราศูนย์', () => {
+    const { observations } = normalizeSeries(
+      BOT_SERIES.spot_rate,
+      envelope([
+        { period: '2026-08-29', bid_rate: '0.0000', offer_rate: '0.0000' },
+        { period: '2026-08-28', bid_rate: '34.6000', offer_rate: '34.6202' },
+      ]),
+    );
+    expect(observations).toHaveLength(1);
+    expect(observations[0]?.period).toBe('2026-08-28');
+  });
+})
