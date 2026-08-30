@@ -151,7 +151,10 @@ export class LiveBotClient implements BotApiClient {
       }
     }
 
-    throw lastError ?? new BotApiError('BOT request failed', 'network');
+    throw withSeriesContext(
+      lastError ?? new BotApiError('BOT request failed', 'network'),
+      descriptor,
+    );
   }
 
   private async request(url: string): Promise<unknown> {
@@ -234,6 +237,30 @@ export class LiveBotClient implements BotApiClient {
  * disallowed"} ซึ่งแยกแยะได้ว่า "คีย์ผิด" หรือ "คีย์ถูกแต่ยังไม่ได้ subscribe ชุดนี้"
  * ต่างจากสถานะ 403 เปล่า ๆ ที่บอกไม่ได้
  */
+/**
+ * เติมชื่อชุดข้อมูลและ path ลงในข้อผิดพลาด
+ *
+ * ธปท. ให้ subscribe แยกทีละชุด คีย์ใบเดียวจึงเรียกบางชุดได้และโดน 403 กับชุดอื่น
+ * หน้าเว็บโหลดหลายชุดพร้อมกัน ถ้าไม่บอกว่าเป็นชุดไหนก็ไม่รู้ว่าต้องไป subscribe อะไรเพิ่ม
+ */
+export function withSeriesContext(
+  error: BotApiError,
+  descriptor: BotSeriesDescriptor,
+): BotApiError {
+  // บางข้อความมี URL ที่เรียกอยู่แล้ว (เช่นกรณีตอบไม่ใช่ JSON) ไม่ต้องบอกซ้ำ
+  if (error.message.includes(descriptor.path)) return error;
+
+  // 401/403 คือปัญหาสิทธิ์ของชุดนั้นโดยเฉพาะ จึงบอกชื่อที่ใช้ค้นในแค็ตตาล็อกให้ด้วย
+  const catalogue =
+    error.reason === 'auth' ? ` ชื่อชุดข้อมูลนี้ในแค็ตตาล็อกคือ "${descriptor.title}"` : '';
+
+  return new BotApiError(
+    `[${descriptor.titleTh} · ${descriptor.path}] ${error.message}${catalogue}`,
+    error.reason,
+    error.status,
+  );
+}
+
 export function upstreamDetail(body: string): string {
   const trimmed = body.trim();
   if (trimmed === '') return '';
