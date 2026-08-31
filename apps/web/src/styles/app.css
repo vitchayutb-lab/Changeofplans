@@ -785,8 +785,49 @@ tbody tr:hover {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   z-index: 20;
-  max-height: 380px;
-  overflow-y: auto;
+  /*
+   * ตัวที่เลื่อนคือรายการ ไม่ใช่ทั้งแผง — ตัวกรองกับจำนวนที่พบจึงค้างให้เห็นตลอด
+   * ขณะเลื่อนดูรายชื่อหลักพันราย ถ้าเลื่อนทั้งแผง ตัวกรองจะหายไปทันทีที่เริ่มเลื่อน
+   */
+  display: flex;
+  flex-direction: column;
+  max-height: min(60vh, 460px);
+}
+
+.picker__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.picker__filter {
+  flex: 1 1 120px;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface-alt);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.picker__clear {
+  padding: 5px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.picker__clear:hover {
+  color: var(--text);
+  border-color: var(--brand);
 }
 
 .picker__status {
@@ -798,6 +839,30 @@ tbody tr:hover {
   list-style: none;
   margin: 0;
   padding: 4px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+/* ทางสำรองของการเลื่อน สำหรับคนที่เดินด้วยคีย์บอร์ดหรือเลื่อนไม่ถึง */
+.picker__more {
+  width: 100%;
+  padding: 8px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.picker__more:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--brand);
+}
+
+.picker__more:disabled {
+  cursor: progress;
 }
 
 .picker__option {

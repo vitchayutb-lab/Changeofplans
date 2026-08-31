@@ -40,6 +40,31 @@ export interface SmeSummary {
   latestFiscalYear: number | null;
 }
 
+/**
+ * ตัวเลือกการเรียงลำดับผลค้นหากิจการ
+ *
+ * เป็นชุดปิด ไม่ใช่ข้อความอิสระ เพราะค่านี้กลายเป็น ORDER BY ในฐานข้อมูล
+ * การรับข้อความอิสระแล้วต่อเข้า SQL ตรง ๆ คือช่องโหว่ SQL injection
+ */
+export type SmeSortKey =
+  | 'name'
+  | 'revenue_desc'
+  | 'revenue_asc'
+  | 'employees_desc'
+  | 'employees_asc'
+  | 'founded_desc'
+  | 'founded_asc';
+
+export const SME_SORT_KEYS: SmeSortKey[] = [
+  'name',
+  'revenue_desc',
+  'revenue_asc',
+  'employees_desc',
+  'employees_asc',
+  'founded_desc',
+  'founded_asc',
+];
+
 export interface SmeSearchResult {
   smes: SmeSummary[];
   /** จำนวนทั้งหมดที่ตรงเงื่อนไข (ไม่ใช่แค่หน้านี้) */
@@ -48,6 +73,8 @@ export interface SmeSearchResult {
   offset: number;
   /** ตัวเลือกสำหรับตัวกรอง คำนวณจากข้อมูลจริงในฐานข้อมูล */
   facets: { industries: string[]; provinces: string[] };
+  /** ลำดับที่ใช้จริง — สะท้อนค่าที่เซิร์ฟเวอร์ยอมรับ ไม่ใช่ค่าที่ผู้ใช้ขอ */
+  sort: SmeSortKey;
 }
 
 export type StatementPeriod = 'FY' | 'H1' | 'Q1' | 'Q2' | 'Q3' | 'Q4';

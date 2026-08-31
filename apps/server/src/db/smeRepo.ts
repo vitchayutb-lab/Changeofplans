@@ -224,8 +224,33 @@ export interface SmeSearchParams {
   q?: string;
   industry?: string;
   province?: string;
+  sort?: string;
   limit?: number;
   offset?: number;
+}
+
+/**
+ * แปลงชื่อการเรียงลำดับเป็น ORDER BY
+ *
+ * เป็นตารางค่าคงที่ ไม่ใช่การประกอบข้อความจากค่าที่ผู้ใช้ส่งมา — ตรงนี้คือจุดเดียว
+ * ในระบบที่ค่าจากภายนอกจะกลายเป็นโครงสร้าง SQL ได้ถ้าเผลอ
+ *
+ * กิจการที่ยังไม่มีงบการเงินให้อยู่ท้ายเสมอ ไม่ว่าจะเรียงจากมากหรือน้อย
+ * เพราะ "ไม่มีข้อมูล" ไม่ใช่ "รายได้ศูนย์" การให้ขึ้นหัวตารางรายได้สูงสุดคือคำตอบที่ผิด
+ */
+const SORT_SQL: Record<string, string> = {
+  name: 's.name_th ASC',
+  revenue_desc: 'latest_revenue IS NULL, latest_revenue DESC, s.name_th ASC',
+  revenue_asc: 'latest_revenue IS NULL, latest_revenue ASC, s.name_th ASC',
+  employees_desc: 's.employees DESC, s.name_th ASC',
+  employees_asc: 's.employees ASC, s.name_th ASC',
+  founded_desc: 's.founded_year DESC, s.name_th ASC',
+  founded_asc: 's.founded_year ASC, s.name_th ASC',
+};
+
+/** ค่าที่ไม่รู้จักถอยไปใช้การเรียงตามชื่อ แทนที่จะปฏิเสธคำขอทั้งคำขอ */
+export function resolveSort(value: string | undefined): string {
+  return value !== undefined && value in SORT_SQL ? value : 'name';
 }
 
 interface SummaryRow {
@@ -251,10 +276,12 @@ export function searchSmes(params: SmeSearchParams = {}): {
   total: number;
   limit: number;
   offset: number;
+  sort: string;
 } {
   const db = getDb();
   const limit = Math.min(Math.max(params.limit ?? 25, 1), 100);
   const offset = Math.max(params.offset ?? 0, 0);
+  const sort = resolveSort(params.sort);
 
   const where: string[] = [];
   const args: Record<string, unknown> = {};
@@ -294,7 +321,7 @@ export function searchSmes(params: SmeSearchParams = {}): {
               ORDER BY fiscal_year DESC LIMIT 1
            )
          ${whereSql}
-         ORDER BY s.name_th
+         ORDER BY ${SORT_SQL[sort]}
          LIMIT @limit OFFSET @offset`,
     )
     .all({ ...args, limit, offset }) as SummaryRow[];
@@ -314,6 +341,7 @@ export function searchSmes(params: SmeSearchParams = {}): {
     total,
     limit,
     offset,
+    sort,
   };
 }
 

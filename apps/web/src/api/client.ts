@@ -114,6 +114,7 @@ export const api = {
       q?: string;
       industry?: string;
       province?: string;
+      sort?: string;
       limit?: number;
       offset?: number;
     } = {}) => request<SmeSearchResult>(`/smes${query(params)}`),
