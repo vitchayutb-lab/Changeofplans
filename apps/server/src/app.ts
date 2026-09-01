@@ -9,7 +9,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { env } from './config/env.js';
 import { getDb } from './db/index.js';
-import { seedDatabase, type SeedOptions } from './db/seed.js';
+import { backfillProgramUrls, seedDatabase, type SeedOptions } from './db/seed.js';
 import { errorHandler } from './middleware/errors.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/security.js';
@@ -58,6 +58,8 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
 
   if (options.seed ?? true) {
     seedDatabase(getDb(), options.seedOptions ?? {});
+    // ฐานข้อมูลที่มีข้อมูลอยู่แล้วข้าม seed ทั้งก้อน จึงต้องเติมคอลัมน์ที่เพิ่มทีหลังแยก
+    backfillProgramUrls(getDb());
   }
 
   app.disable('x-powered-by');

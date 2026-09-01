@@ -1,11 +1,13 @@
 /** ภาพรวมหน้าแรก: ตัวเลข ธปท. + ตัวชี้วัดของกิจการ + คำเตือน + แหล่งเงินทุนที่เหมาะสุด */
 
 import { Link } from 'react-router-dom';
+import { BUSINESS_REGISTRY_LINKS } from '@sme/shared';
 import { api } from '../api/client';
 import { useApi } from '../api/hooks';
 import { useApp } from '../context';
 import { AsyncBoundary, Card, MetricCard, Section, Verdict } from '../components/primitives';
 import { SourceBadge } from '../components/SourceBadge';
+import { ProviderLink, ReferenceLinks } from '../components/ReferenceLinks';
 import { formatMoneyShort, formatPercent, formatRatio } from '../components/format';
 
 /** ข้อความเทียบปีก่อน — yoy เป็นสัดส่วน (0.12 = +12%) และเป็น null เมื่อไม่มีปีก่อนให้เทียบ */
@@ -24,6 +26,11 @@ export function DashboardPage() {
   );
   const matches = useApi(
     () => (selectedSmeId ? api.funding.match(selectedSmeId) : Promise.resolve(null)),
+    [selectedSmeId],
+  );
+  // SmeSummary ที่ context ถืออยู่ไม่มีเลขทะเบียน จึงต้องขอโปรไฟล์เต็มมาอีกที
+  const detail = useApi(
+    () => (selectedSmeId ? api.smes.detail(selectedSmeId) : Promise.resolve(null)),
     [selectedSmeId],
   );
 
@@ -146,6 +153,9 @@ export function DashboardPage() {
                         {formatMoneyShort(match.estimate.annualInterest)}
                       </p>
                     )}
+                    <div className="row" style={{ marginTop: 8 }}>
+                      <ProviderLink url={match.program.url} provider={match.program.provider} />
+                    </div>
                     <SourceBadge provenance={match.estimate?.provenance ?? null} compact />
                   </Card>
                 ))}
@@ -153,6 +163,48 @@ export function DashboardPage() {
             );
           }}
         </AsyncBoundary>
+      </Section>
+
+      <Section title="แหล่งอ้างอิง" hint="ตรวจสอบกิจการกับทะเบียนของหน่วยงานราชการ">
+        <Card>
+          <AsyncBoundary state={detail} empty="ยังไม่ได้เลือกกิจการ">
+            {(data) =>
+              data === null ? (
+                <div className="state">ยังไม่ได้เลือกกิจการ</div>
+              ) : (
+                <>
+                  <dl className="reference__facts">
+                    <div>
+                      <dt>ชื่อจดทะเบียน</dt>
+                      <dd>{data.sme.nameTh}</dd>
+                    </div>
+                    <div>
+                      <dt>ชื่อภาษาอังกฤษ</dt>
+                      <dd>{data.sme.nameEn}</dd>
+                    </div>
+                    <div>
+                      <dt>เลขทะเบียนนิติบุคคล</dt>
+                      <dd className="mono">{data.sme.registrationNo ?? 'ไม่ได้บันทึกไว้'}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="banner banner--warn">
+                    <span>ℹ️</span>
+                    <div className="banner__body">
+                      <div className="banner__title">กิจการในระบบนี้เป็นข้อมูลจำลอง</div>
+                      <div>
+                        เลขทะเบียนด้านบนสร้างขึ้นเพื่อสาธิต จึงค้นในทะเบียนจริงไม่พบ
+                        ลิงก์ด้านล่างพาไปหน้าของหน่วยงาน ใช้ค้นกิจการจริงของคุณเองได้
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )
+            }
+          </AsyncBoundary>
+
+          <ReferenceLinks links={BUSINESS_REGISTRY_LINKS} />
+        </Card>
       </Section>
     </>
   );
