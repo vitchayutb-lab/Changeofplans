@@ -176,7 +176,7 @@ export function normalizePeriod(raw: string): string | null {
 export function normalizeSeries(
   descriptor: BotSeriesDescriptor,
   payload: unknown,
-): { observations: BotObservation[]; lastUpdated: string | null } {
+): { observations: BotObservation[]; lastUpdated: string | null; rowCount: number } {
   const detail = extractDetail(payload);
   const flattened = flattenRows(detail, descriptor.nestedArrayKeys);
   const rows = flattened.filter((row) => matchesRowFilter(row, descriptor.rowFilter));
@@ -251,14 +251,14 @@ export function normalizeSeries(
     // BOT ตอบ 200 พร้อม data_detail ว่าง เมื่อช่วงวันที่ที่ขอไม่มีวันทำการ
     // (เช่น ขอเฉพาะวันเสาร์อาทิตย์) — นั่นคือคำตอบที่ถูกต้อง ไม่ใช่ผลลัพธ์ที่อ่านไม่ออก
     if (detail.length === 0) {
-      return { observations: [], lastUpdated: extractLastUpdated(payload) };
+      return { observations: [], lastUpdated: extractLastUpdated(payload), rowCount: rows.length };
     }
 
     // บาง endpoint บอก "ไม่มีข้อมูล" ด้วยแถวเปล่าหนึ่งแถวแทนที่จะส่ง array ว่าง
     // ความหมายเหมือนกัน จึงไม่ควรรายงานเป็นข้อผิดพลาด
     // (ต่างจากกรณีที่แถวมีค่าอยู่จริงแต่เราอ่านไม่ได้ ซึ่งยังต้องดังเหมือนเดิม)
     if (rows.every(isBlankRow)) {
-      return { observations: [], lastUpdated: extractLastUpdated(payload) };
+      return { observations: [], lastUpdated: extractLastUpdated(payload), rowCount: rows.length };
     }
 
     // โครงรายงานที่ไม่มีตัวเลข — ธปท. ส่งรายชื่อประเภทอัตรามาครบ แต่ทั้งวันที่และค่าเป็นค่าว่าง
@@ -268,7 +268,7 @@ export function normalizeSeries(
     // ต่างจาก "ชื่อคอลัมน์ผิด" ตรงที่คอลัมน์มีอยู่จริงในแถว เพียงแต่ว่าง — ถ้าชื่อผิด
     // คอลัมน์จะไม่มีอยู่เลย ซึ่งต้องดังเหมือนเดิม เพราะเป็นคนละปัญหาและแก้คนละที่
     if (rows.every((row) => hasEmptyMeasuredColumns(row, descriptor))) {
-      return { observations: [], lastUpdated: extractLastUpdated(payload) };
+      return { observations: [], lastUpdated: extractLastUpdated(payload), rowCount: rows.length };
     }
 
     // มีแถวข้อมูลจริงแต่ไม่เหลือค่าเลย — บอกให้ชัดว่าตกตรงไหน และแนบแถวจริงหนึ่งแถว
@@ -305,7 +305,7 @@ export function normalizeSeries(
       a.period === b.period ? a.dimension.localeCompare(b.dimension) : a.period.localeCompare(b.period),
     );
 
-  return { observations, lastUpdated: extractLastUpdated(payload) };
+  return { observations, lastUpdated: extractLastUpdated(payload), rowCount: rows.length };
 }
 
 /**

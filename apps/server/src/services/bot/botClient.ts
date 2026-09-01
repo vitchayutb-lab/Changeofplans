@@ -14,14 +14,35 @@ import {
   RETIRED_BOT_HOSTS,
   validateBotBaseUrl,
 } from '../../config/env.js';
-import { normalizeSeries } from './botNormalize.js';
+import { extractDetail, normalizeSeries } from './botNormalize.js';
 import { BotApiError } from './botTypes.js';
+import type { BotObservation } from '@sme/shared';
 import type {
   BotApiClient,
   BotFetchParams,
   BotFetchResult,
   BotSeriesDescriptor,
 } from './botTypes.js';
+
+/**
+ * ชื่อชุดย่อยที่ปรากฏในผลลัพธ์ ตามลำดับที่ ธปท. ส่งมา
+ *
+ * เมื่อ ธปท. ตอบสารบัญกลับมา นี่คือรายชื่อที่จะเอาไปถามต่อทีละชุด
+ * อ่านจากผลลัพธ์จริงจึงไม่ต้องเดาชื่อ และไม่ค้างเมื่อ ธปท. เปลี่ยนรายการ
+ */
+function readSliceNames(descriptor: BotSeriesDescriptor, payload: unknown): string[] {
+  if (!descriptor.dimensionParam) return [];
+  const key = descriptor.dimensionParam.from.toLowerCase();
+  const seen = new Set<string>();
+  for (const row of extractDetail(payload)) {
+    for (const [name, value] of Object.entries(row)) {
+      if (name.toLowerCase() !== key) continue;
+      const text = typeof value === 'string' ? value.trim() : '';
+      if (text !== '') seen.add(text);
+    }
+  }
+  return [...seen];
+}
 
 /** ถังโทเคนแบบง่าย จำกัดจำนวนคำขอต่อวินาทีที่ยิงออกไปหา BOT */
 class RateLimiter {
@@ -114,6 +135,9 @@ export class LiveBotClient implements BotApiClient {
     if (descriptor.supportsCurrency && params.currency) {
       url.searchParams.set('currency', params.currency.toUpperCase());
     }
+    if (descriptor.dimensionParam && params.dimensionValue) {
+      url.searchParams.set(descriptor.dimensionParam.name, params.dimensionValue);
+    }
     return url.toString();
   }
 
@@ -132,6 +156,57 @@ export class LiveBotClient implements BotApiClient {
       );
     }
 
+    const first = await this.fetchOnce(descriptor, params);
+
+    // ชุดที่ต้องบอกชื่อชุดย่อย: คำขอแรกได้สารบัญมา ไม่ใช่ข้อมูล จึงต้องถามต่อทีละชุด
+    if (descriptor.dimensionParam && first.observations.length === 0 && first.rowCount > 0) {
+      const slices = first.sliceNames.slice(0, descriptor.dimensionParam.maxValues);
+      if (slices.length > 0) return this.fetchSlices(descriptor, params, slices);
+    }
+
+    return {
+      observations: first.observations,
+      lastUpdated: first.lastUpdated,
+      rowCount: first.rowCount,
+      unit: descriptor.unit,
+    };
+  }
+
+  /**
+   * ถามทีละชุดย่อยแล้วรวมผล
+   *
+   * ชุดใดพังถือว่าพังทั้งหมด กราฟที่ขาดไปหนึ่งเส้นโดยไม่บอกอะไรเลย
+   * แย่กว่ากราฟที่ไม่ขึ้นพร้อมเหตุผล
+   */
+  private async fetchSlices(
+    descriptor: BotSeriesDescriptor,
+    params: BotFetchParams,
+    slices: string[],
+  ): Promise<BotFetchResult> {
+    const observations: BotObservation[] = [];
+    let lastUpdated: string | null = null;
+    let rowCount = 0;
+
+    for (const slice of slices) {
+      const result = await this.fetchOnce(descriptor, { ...params, dimensionValue: slice });
+      observations.push(...result.observations);
+      rowCount += result.rowCount;
+      lastUpdated ??= result.lastUpdated;
+    }
+
+    return { observations, lastUpdated, rowCount, unit: descriptor.unit };
+  }
+
+  /** หนึ่งคำขอพร้อมการลองใหม่ — คืนชื่อชุดย่อยที่เห็นในผลลัพธ์มาด้วย */
+  private async fetchOnce(
+    descriptor: BotSeriesDescriptor,
+    params: BotFetchParams,
+  ): Promise<{
+    observations: BotObservation[];
+    lastUpdated: string | null;
+    rowCount: number;
+    sliceNames: string[];
+  }> {
     const url = this.buildUrl(descriptor, params);
     let lastError: BotApiError | null = null;
 
@@ -142,8 +217,13 @@ export class LiveBotClient implements BotApiClient {
       }
       try {
         const payload = await this.request(url);
-        const { observations, lastUpdated } = normalizeSeries(descriptor, payload);
-        return { observations, lastUpdated, unit: descriptor.unit };
+        const { observations, lastUpdated, rowCount } = normalizeSeries(descriptor, payload);
+        return {
+          observations,
+          lastUpdated,
+          rowCount,
+          sliceNames: readSliceNames(descriptor, payload),
+        };
       } catch (error) {
         const botError = toBotError(error);
         lastError = botError;

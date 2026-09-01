@@ -196,7 +196,13 @@ export function DeveloperPage() {
                               </span>
                             )}
                           </td>
-                          <td className="num">{result ? result.observations : '—'}</td>
+                          <td className="num">
+                            {result ? result.observations : '—'}
+                            {/* ศูนย์จุดข้อมูลจากหลายสิบแถว ต่างจากศูนย์จุดข้อมูลจากศูนย์แถว */}
+                            {result && result.ok && result.observations === 0 && result.rows > 0 && (
+                              <div className="tiny muted">จาก {result.rows} แถว</div>
+                            )}
+                          </td>
                           <td className="tiny">
                             {/*
                               "ไม่มีมิติใดได้ค่า" ใช้ได้เฉพาะตอนเรียกติด — เรียกไม่ติดแล้วเขียนแบบนี้

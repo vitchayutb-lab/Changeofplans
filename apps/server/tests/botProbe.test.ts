@@ -39,6 +39,7 @@ const OK: BotFetchResult = {
     { period: '2026-08-27', dimension: '1m', value: 1.75 },
   ],
   lastUpdated: '2026-08-27T07:00:00.000Z',
+  rowCount: 2,
   unit: 'percent_per_annum',
 };
 
@@ -75,12 +76,32 @@ describe('probeSeries', () => {
     const probe = await live(() => ({
       observations: [],
       lastUpdated: null,
+      rowCount: 16,
       unit: 'percent_per_annum',
     })).probeSeries('thb_implied_rate');
 
     expect(probe.ok).toBe(true);
     expect(probe.dimensionsWithData).toEqual([]);
     expect(probe.declaredDimensions.length).toBeGreaterThan(0);
+  });
+
+  it('รายงานจำนวนแถวดิบที่ ธปท. ส่งมา', async () => {
+    const empty = await live(() => ({
+      observations: [],
+      lastUpdated: null,
+      rowCount: 16,
+      unit: 'percent_per_annum' as const,
+    })).probeSeries('thb_implied_rate');
+    expect(empty.observations).toBe(0);
+    expect(empty.rows).toBe(16);
+
+    const nothing = await live(() => ({
+      observations: [],
+      lastUpdated: null,
+      rowCount: 0,
+      unit: 'percent_per_annum' as const,
+    })).probeSeries('thb_implied_rate');
+    expect(nothing.rows).toBe(0);
   });
 
   it('บอกว่ามิติไหนได้ค่าจริง เทียบกับที่ทะเบียนประกาศไว้', async () => {
@@ -196,5 +217,46 @@ describe('ผลการทดสอบต้องไม่พา API key อ�
     expect(probe.error).toContain('gateway.api.bot.or.th');
     expect(JSON.stringify(probe)).not.toContain(key);
     expect(JSON.stringify(probe).toLowerCase()).not.toContain('x-ibm-client-id');
+  });
+});
+
+describe('ข้อความเมื่อ ธปท. ตอบสำเร็จแต่ไม่มีตัวเลข', () => {
+  it('แถวว่างหลายสิบแถว บอกจำนวนแถวไว้ด้วย', async () => {
+    // ธปท. ส่งโครงรายงานมา กับ ธปท. ไม่ส่งอะไรมาเลย ให้ observations = 0 เท่ากัน
+    // จำนวนแถวคือสิ่งเดียวที่แยกสองอย่างนี้ออกจากกันได้จากภายนอก
+    const series = await live(() => ({
+      observations: [],
+      lastUpdated: '2024-12-27T00:00:00.000Z',
+      rowCount: 16,
+      unit: 'percent_per_annum' as const,
+    })).getSeries('thb_implied_rate');
+
+    expect(series.provenance.source).toBe('bot');
+    expect(series.provenance.notice).toContain('16 แถว');
+  });
+
+  it('ไม่มีแถวเลยก็บอกแบบนั้น', async () => {
+    const series = await live(() => ({
+      observations: [],
+      lastUpdated: null,
+      rowCount: 0,
+      unit: 'percent_per_annum' as const,
+    })).getSeries('thb_implied_rate');
+
+    expect(series.provenance.notice).toContain('ไม่ได้ส่งแถวข้อมูลมาเลย');
+  });
+
+  it('ไม่สรุปแทน ธปท. ว่ารายงานหยุดอัปเดตแล้ว', async () => {
+    // last_updated อยู่ปนกับฟิลด์คำอธิบายรายงาน จึงอาจเป็นวันที่แก้ตัวรายงาน
+    // ไม่ใช่วันที่ของข้อมูล — เอกสารของชุดนี้ระบุว่าเผยแพร่ทุกวันทำการ
+    const series = await live(() => ({
+      observations: [],
+      lastUpdated: '2024-12-27T00:00:00.000Z',
+      rowCount: 16,
+      unit: 'percent_per_annum' as const,
+    })).getSeries('thb_implied_rate');
+
+    expect(series.provenance.notice).toContain('last_updated 2024-12-27');
+    expect(series.provenance.notice).not.toContain('อัปเดตรายงานนี้ล่าสุด');
   });
 });
