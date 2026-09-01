@@ -571,3 +571,70 @@ describe('ชุดข้อมูลที่แก้ตามผลลัพ�
     });
   }
 });
+
+describe('โครงรายงานที่ ธปท. ส่งมาเมื่อช่วงที่ขอไม่มีข้อมูล', () => {
+  // ของจริงจาก Stat-ThaiBahtImpliedInterestRate เมื่อขอช่วงปี 2026
+  // ส่วนหัวบอกว่ารายงานอัปเดตล่าสุด 2024-12-27 แถวจึงมีแต่ชื่อประเภทอัตรา ไม่มีตัวเลข
+  const SKELETON = [
+    { period: '', rate_type_name_th: 'ONSHORE : T/N', rate_type_name_eng: 'ONSHORE : T/N', interest_rate: '' },
+    { period: '', rate_type_name_th: 'ONSHORE : 1M', rate_type_name_eng: 'ONSHORE : 1M', interest_rate: '' },
+  ];
+
+  it('ถือว่าไม่มีข้อมูล ไม่ใช่ข้อผิดพลาด', () => {
+    const { observations } = normalizeSeries(
+      BOT_SERIES.thb_implied_rate,
+      envelope(SKELETON, { last_updated: '2024-12-27' }),
+    );
+    expect(observations).toEqual([]);
+  });
+
+  it('ยังบอกวันที่ ธปท. อัปเดตล่าสุด เพื่อให้รู้ว่าทำไมถึงว่าง', () => {
+    const { lastUpdated } = normalizeSeries(
+      BOT_SERIES.thb_implied_rate,
+      envelope(SKELETON, { last_updated: '2024-12-27' }),
+    );
+    expect(lastUpdated).toContain('2024-12-27');
+  });
+
+  it('ชื่อคอลัมน์ผิดยังต้องดังเหมือนเดิม — คนละอาการกับไม่มีข้อมูล', () => {
+    // ต่างกันที่คอลัมน์ "ไม่มีอยู่" ไม่ใช่ "มีอยู่แต่ว่าง"
+    expect(() =>
+      normalizeSeries(
+        BOT_SERIES.thb_implied_rate,
+        envelope([{ วันที่: '2026-08-28', rate_type_name_eng: 'ONSHORE : T/N', อัตรา: '1.45' }]),
+      ),
+    ).toThrow(/ปรับ periodFields\/valueFields/);
+  });
+
+  it('คอลัมน์วันที่ตรงแต่คอลัมน์ค่าไม่มีเลย ต้องยังดัง', () => {
+    // เจอตอนรันจริง: เช็คแค่ "มีคอลัมน์สักช่องแล้วว่าง" ไม่พอ — spot_rate อ่าน period ได้
+    // แต่ bid_rate/offer_rate ไม่มีอยู่ในแถวเลย ซึ่งคือชื่อคอลัมน์ผิด ไม่ใช่ไม่มีข้อมูล
+    expect(() => normalizeSeries(BOT_SERIES.spot_rate, envelope(SKELETON))).toThrow(
+      /ปรับ periodFields\/valueFields/,
+    );
+  });
+
+  it('มีค่าอยู่จริงแต่อ่านไม่ออกก็ยังดัง', () => {
+    // '-' ไม่ใช่ค่าว่าง มันคือค่าที่เราอ่านไม่ได้ ซึ่งเป็นบั๊ก ไม่ใช่คำตอบว่าไม่มีข้อมูล
+    expect(() =>
+      normalizeSeries(
+        BOT_SERIES.thb_implied_rate,
+        envelope([{ period: '2026-08-28', rate_type_name_eng: 'ONSHORE : T/N', interest_rate: '-' }]),
+      ),
+    ).toThrow(/อ่านค่าไม่ได้/);
+  });
+
+  it('บางแถวมีค่าจริงก็ต้องอ่านให้ได้ ไม่ใช่ทิ้งทั้งชุด', () => {
+    // ถ้าเผลอถือว่า "มีแถวว่างปน = ไม่มีข้อมูล" ข้อมูลจริงจะหายไปเงียบ ๆ
+    const { observations } = normalizeSeries(
+      BOT_SERIES.thb_implied_rate,
+      envelope([
+        ...SKELETON,
+        { period: '2024-12-27', rate_type_name_eng: 'ONSHORE : 1M', interest_rate: '1.4500' },
+      ]),
+    );
+    expect(observations).toEqual([
+      { period: '2024-12-27', dimension: 'ONSHORE : 1M', value: 1.45 },
+    ]);
+  });
+});

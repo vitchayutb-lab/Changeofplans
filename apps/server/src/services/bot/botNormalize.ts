@@ -261,6 +261,16 @@ export function normalizeSeries(
       return { observations: [], lastUpdated: extractLastUpdated(payload) };
     }
 
+    // โครงรายงานที่ไม่มีตัวเลข — ธปท. ส่งรายชื่อประเภทอัตรามาครบ แต่ทั้งวันที่และค่าเป็นค่าว่าง
+    // เมื่อช่วงที่ขอไม่มีข้อมูล (เจอกับ Stat-ThaiBahtImpliedInterestRate และ
+    // Stat-ExternalInterestRate ที่ส่วนหัวบอกว่าอัปเดตล่าสุดปี 2024)
+    //
+    // ต่างจาก "ชื่อคอลัมน์ผิด" ตรงที่คอลัมน์มีอยู่จริงในแถว เพียงแต่ว่าง — ถ้าชื่อผิด
+    // คอลัมน์จะไม่มีอยู่เลย ซึ่งต้องดังเหมือนเดิม เพราะเป็นคนละปัญหาและแก้คนละที่
+    if (rows.every((row) => hasEmptyMeasuredColumns(row, descriptor))) {
+      return { observations: [], lastUpdated: extractLastUpdated(payload) };
+    }
+
     // มีแถวข้อมูลจริงแต่ไม่เหลือค่าเลย — บอกให้ชัดว่าตกตรงไหน และแนบแถวจริงหนึ่งแถว
     // ชื่อคอลัมน์อย่างเดียวไม่พอเมื่อคอลัมน์ตรงแล้วแต่ค่ายังอ่านไม่ได้
     const seenColumns = [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 20);
@@ -296,6 +306,40 @@ export function normalizeSeries(
     );
 
   return { observations, lastUpdated: extractLastUpdated(payload) };
+}
+
+/**
+ * คอลัมน์ที่ทะเบียนอ่านจริง "มีอยู่แต่ว่าง" ทุกช่องหรือไม่
+ *
+ * แยกสองอาการที่หน้าตาเหมือนกันเมื่อดูจากผลลัพธ์สุดท้าย:
+ *   มีคอลัมน์แต่ค่าว่าง = ธปท. ไม่มีข้อมูลของช่วงนี้ — เป็นคำตอบที่ถูกต้อง
+ *   ไม่มีคอลัมน์เลย     = ชื่อคอลัมน์ในทะเบียนไม่ตรง — เป็นบั๊กที่ต้องดัง
+ */
+function hasEmptyMeasuredColumns(row: Row, descriptor: BotSeriesDescriptor): boolean {
+  const lowered = lowerKeys(row);
+
+  // ว่างแปลว่า "ไม่มีข้อมูล" ได้ก็ต่อเมื่อคอลัมน์นั้นมีอยู่จริงในแถว
+  // ไม่มีคอลัมน์เลยคือชื่อในทะเบียนไม่ตรง ซึ่งเป็นบั๊กคนละเรื่อง
+  function emptyPresent(names: string[]): { present: boolean; allEmpty: boolean } {
+    let present = false;
+    for (const name of names) {
+      const value = lowered.get(name.toLowerCase());
+      if (value === undefined) continue;
+      present = true;
+      if (value !== null && String(value).trim() !== '') return { present, allEmpty: false };
+    }
+    return { present, allEmpty: true };
+  }
+
+  // ไม่รวมคอลัมน์มิติ เพราะโครงรายงานเปล่ายังมีชื่อประเภทอัตราครบ มีแต่ตัวเลขที่หายไป
+  const period = emptyPresent(descriptor.periodFields);
+  const value = emptyPresent(Object.values(descriptor.valueFields).flat());
+
+  // ต้องว่างทั้งฝั่งวันที่และฝั่งค่า และทั้งสองฝั่งต้องมีคอลัมน์อยู่จริง
+  //
+  // ถ้าเช็คแค่ "มีคอลัมน์สักช่องแล้วว่าง" ชุดที่ periodFields บังเอิญตรงแต่ valueFields
+  // ผิดทั้งหมดจะถูกนับเป็นไม่มีข้อมูล แล้วบั๊กชื่อคอลัมน์จะเงียบหายไป
+  return period.present && period.allEmpty && value.present && value.allEmpty;
 }
 
 /** ทุกคอลัมน์ว่างหมด — เป็นแถวที่ ธปท. ใส่มาแทนคำตอบว่าไม่มีข้อมูล ไม่ใช่ข้อมูลที่อ่านไม่ออก */
@@ -341,7 +385,10 @@ function sampleRow(row: Row | undefined): string {
   if (!row) return 'ไม่มีแถว';
   return Object.entries(row)
     .slice(0, 10)
-    .map(([key, value]) => `${key}=${JSON.stringify(value)?.slice(0, 32) ?? 'null'}`)
+    .map(([key, value]) => {
+      const text = JSON.stringify(value) ?? 'null';
+      return `${key}=${text.length > 40 ? `${text.slice(0, 40)}…` : text}`;
+    })
     .join(', ');
 }
 
