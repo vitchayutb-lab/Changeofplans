@@ -94,6 +94,8 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     app.use('/api/advisor/chat', expensive);
     app.use('/api/startup/assess', expensive);
     app.use('/api/tools', expensive);
+    // ทดสอบทีเดียวเท่ากับเรียก ธปท. หนึ่งครั้งต่อชุดข้อมูล แพงที่สุดในบรรดาเส้นทางทั้งหมด
+    app.use('/api/bot/probe', expensive);
   }
 
   app.use('/api/health', healthRouter);

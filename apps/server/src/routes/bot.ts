@@ -99,6 +99,34 @@ botRouter.get(
   }),
 );
 
+/**
+ * ทดสอบว่าทะเบียนชุดข้อมูลตรงกับผลลัพธ์จริงของ ธปท. หรือยัง
+ *
+ * เส้นทางปกติออกแบบมาให้หน้าเว็บได้ตัวเลขเสมอ ดึงไม่ได้ก็ถอยไปข้อมูลจำลอง ซึ่งแปลว่า
+ * ชุดที่ path หรือชื่อคอลัมน์ผิดจะดูเหมือนทำงานได้ตลอด เส้นทางนี้ไม่ถอยและไม่ใช้แคช
+ * จึงบอกได้ว่าชุดไหนเรียกไม่ติด และชุดไหนเรียกติดแต่ไม่มีมิติใดได้ค่าเลย
+ *
+ * POST เพราะหนึ่งคำขอเท่ากับการเรียก ธปท. หนึ่งครั้งต่อชุด
+ */
+botRouter.post(
+  '/probe',
+  asyncRoute(async (req, res) => {
+    const body = req.body as { seriesId?: string } | undefined;
+    const seriesId = body?.seriesId;
+    if (seriesId !== undefined && !BOT_SERIES_IDS.includes(seriesId as BotSeriesId)) {
+      throw badRequest(
+        `ไม่รู้จักชุดข้อมูล "${seriesId}"`,
+        `supported: ${BOT_SERIES_IDS.join(', ')}`,
+      );
+    }
+    const bot = getBotService();
+    const probes = seriesId
+      ? [await bot.probeSeries(seriesId as BotSeriesId)]
+      : await bot.probeAll();
+    res.json({ probes, checkedAt: new Date().toISOString() });
+  }),
+);
+
 /** เครื่องมือสำหรับนักพัฒนา: ล้างแคชเพื่อบังคับให้ดึงข้อมูลใหม่ */
 botRouter.post(
   '/cache/invalidate',

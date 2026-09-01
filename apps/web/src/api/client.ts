@@ -14,6 +14,7 @@ import type {
   BotSeries,
   BotSeriesCatalogEntry,
   BotSeriesId,
+  BotSeriesProbe,
   BotSummary,
   DebtOverview,
   FinancialAnalysis,
@@ -104,6 +105,12 @@ export const api = {
     exchangeRate: (currency: string, params: { start?: string; end?: string } = {}) =>
       request<BotSeries>(`/bot/exchange-rate${query({ currency, ...params })}`),
     market: () => request<{ interbank: BotSeries; bibor: BotSeries; reference: BotSeries }>('/bot/market'),
+    /** ทดสอบว่าชุดข้อมูลไหนเรียก ธปท. ได้จริง — ไม่ผ่านแคช ไม่ถอยไปข้อมูลจำลอง */
+    probe: (seriesId?: string) =>
+      post<{ probes: BotSeriesProbe[]; checkedAt: string }>(
+        '/bot/probe',
+        seriesId ? { seriesId } : {},
+      ),
     invalidate: (seriesId?: BotSeriesId) =>
       post<{ cleared: number }>('/bot/cache/invalidate', seriesId ? { seriesId } : {}),
   },

@@ -155,6 +155,38 @@ export interface HealthResponse {
   };
 }
 
+/**
+ * ผลการทดสอบเรียกชุดข้อมูลหนึ่งชุดกับ ธปท. จริง โดยไม่ผ่านแคชและไม่ถอยไปข้อมูลจำลอง
+ *
+ * ทะเบียนชุดข้อมูลเก็บ path และชื่อคอลัมน์ที่คาดว่า ธปท. ใช้ ซึ่งบางชุดยังไม่เคยยืนยัน
+ * กับผลลัพธ์จริง การรู้ว่า "เรียกติดแต่ไม่มีมิติไหนได้ค่าเลย" ต่างจาก "เรียกไม่ติด"
+ * คนละเรื่อง และเป็นสิ่งที่บอกได้ว่าต้องแก้ตรงไหน
+ */
+export interface BotSeriesProbe {
+  seriesId: BotSeriesId;
+  titleTh: string;
+  path: string;
+  ok: boolean;
+  /** ข้อความผิดพลาดตามจริงจากการเรียก (null เมื่อสำเร็จ) */
+  error: string | null;
+  /** จำนวนจุดข้อมูลที่แปลงออกมาได้ */
+  observations: number;
+  /** มิติที่ทะเบียนประกาศไว้ */
+  declaredDimensions: string[];
+  /**
+   * มิติที่มีค่าออกมาจริง
+   *
+   * ต่างจากที่ประกาศเมื่อไร แปลว่าชื่อคอลัมน์ใน valueFields ไม่ตรงกับผลลัพธ์ของ ธปท.
+   * ซึ่งเป็นคนละอาการกับเรียกไม่ติด และแก้คนละที่
+   */
+  dimensionsWithData: string[];
+  /** ช่วงที่ขอไปจริง หลังตัดตาม maxRangeDays แล้ว */
+  requested: { start: string; end: string };
+  firstPeriod: string | null;
+  lastPeriod: string | null;
+  elapsedMs: number;
+}
+
 /** สถานะการเรียกของชุดข้อมูลหนึ่งชุด นับตั้งแต่เซิร์ฟเวอร์เริ่มทำงาน */
 export interface BotSeriesHealth {
   seriesId: BotSeriesId;

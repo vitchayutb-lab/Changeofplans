@@ -62,6 +62,24 @@ describe('GET /api/bot/*', () => {
     expect(response.body.error.message).toContain('policy_rate');
   });
 
+  it('POST /api/bot/probe รายงานทุกชุด และบอกว่าทดสอบจริงไม่ได้ในโหมดจำลอง', async () => {
+    // เทสต์รันโดยไม่มี API key เครื่องมือจึงต้องบอกว่าทดสอบไม่ได้
+    // ไม่ใช่ยิงใส่ข้อมูลจำลองแล้วรายงานว่าทุกชุดผ่าน
+    const response = await request(app).post('/api/bot/probe').send({}).expect(200);
+    expect(response.body.probes.length).toBeGreaterThanOrEqual(10);
+    expect(response.body.probes.every((p: { ok: boolean }) => !p.ok)).toBe(true);
+    expect(response.body.probes[0].error).toContain('DEMO MODE');
+  });
+
+  it('POST /api/bot/probe ทดสอบชุดเดียวได้ และปฏิเสธชุดที่ไม่รู้จัก', async () => {
+    const one = await request(app).post('/api/bot/probe').send({ seriesId: 'bibor' }).expect(200);
+    expect(one.body.probes).toHaveLength(1);
+    expect(one.body.probes[0].seriesId).toBe('bibor');
+
+    const bad = await request(app).post('/api/bot/probe').send({ seriesId: 'ไม่มีจริง' }).expect(400);
+    expect(bad.body.error.message).toContain('ไม่มีจริง');
+  });
+
   it('ล้างแคชได้', async () => {
     await request(app).get('/api/bot/policy-rate').expect(200);
     const response = await request(app)
