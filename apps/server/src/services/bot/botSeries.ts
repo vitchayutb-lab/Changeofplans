@@ -236,14 +236,14 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     title: 'Bangkok Interbank Offered Rate (BIBOR)',
     titleTh: 'อัตราดอกเบี้ยอ้างอิงระยะสั้นตลาดกรุงเทพ (BIBOR)',
     //
-    // ยังหา path ที่ถูกไม่เจอ — ค่านี้ให้ 404 จาก backend ไม่ใช่จาก gateway
+    // ชื่อ resource คือ bibor_rate ไม่ใช่ bibor (ยืนยันจากพอร์ทัล ธปท.)
     //
-    // gateway ยอมรับ /BIBOR/v2/ แล้วส่งต่อไปที่ .../Stat/BIBOR/api/bibor/ ซึ่งตอบว่า
-    // "No HTTP resource was found" แปลว่า product นี้สมัครไว้แล้วและ gateway รู้จัก
-    // เหลือแค่ชื่อ resource ท้าย path ที่ยังไม่ตรง ต้องดูจากบรรทัด GET ในหน้า API
-    // specification ของพอร์ทัล ธปท. — วิธีเดียวกับที่แก้ spot_rate ได้
-    // (ตอนนั้นบรรทัด GET มี slash ปิดท้าย ส่วน "Listen path" ในหน้า Overview ไม่มี)
-    path: '/BIBOR/v2/bibor/',
+    // ค่าเดิม /BIBOR/v2/bibor/ ได้ 404 จาก backend ไม่ใช่จาก gateway แปลว่า product
+    // ถูกแล้ว ผิดแค่ชื่อ resource ท้าย path
+    //
+    // product นี้มีอีกหนึ่ง resource คือ /BIBOR/v2/bibor_avg_rate/ ซึ่งเป็นค่าเฉลี่ย
+    // ชุดนี้ต้องการอัตรารายวัน จึงใช้ bibor_rate
+    path: '/BIBOR/v2/bibor_rate/',
     unit: 'percent_per_annum',
     ttlSeconds: 30 * MINUTE,
     supportsDateRange: true,
@@ -252,12 +252,16 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     supportsCurrency: false,
     dimensions: ['1m', '3m', '6m'],
     periodFields: ['period', 'date'],
+    // ยังไม่เคยเห็นผลลัพธ์จริงของ endpoint นี้ ชื่อคอลัมน์จึงยังเป็นการคาด
+    // endpoint พี่น้องในกลุ่มเดียวกันใช้รูปแบบ "หนึ่งแถวต่อประเภท" คือมีคอลัมน์ชื่อประเภท
+    // คู่กับคอลัมน์ค่าเดียว (rate_type_name_eng + interest_rate) ถ้า BIBOR เป็นแบบนั้น
+    // คอลัมน์ที่ตั้งไว้นี้จะไม่ตรง และข้อความผิดพลาดจะบอกชื่อคอลัมน์จริงมาให้แก้ในรอบเดียว
     valueFields: {
       '1m': ['bibor_1m', 'rate_1m', '1m'],
       '3m': ['bibor_3m', 'rate_3m', '3m'],
       '6m': ['bibor_6m', 'rate_6m', '6m'],
     },
-    nestedArrayKeys: ['detail', 'observation', 'rate_detail'],
+    nestedArrayKeys: [],
     description: 'อัตราอ้างอิงระยะสั้นที่ธนาคารเสนอกู้ยืมกันเอง ใช้อ้างอิงสินเชื่อลอยตัวบางประเภท',
   },
 
@@ -279,7 +283,12 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     // interest_rate — หนึ่งแถวต่อประเภทอัตรา (เช่น "ONSHORE : T/N") มิติจึงมาจากคอลัมน์
     dimensionField: 'rate_type_name_eng',
     // เอกสารของ ธปท. ระบุ rate_type ไว้เป็นพารามิเตอร์เสริม (ตัวอย่าง "ONSHORE : T/N")
-    // ถ้าไม่ส่งไป endpoint จะคืนสารบัญ คือรายชื่อประเภทอัตราครบ แต่ไม่มีวันที่และไม่มีค่า
+    // ไม่ส่งไป = ได้สารบัญ คือรายชื่อประเภทอัตราครบ แต่ไม่มีวันที่และไม่มีค่า
+    //
+    // ทดสอบกับ ธปท. จริงแล้ว: ส่ง rate_type ไปก็ยังไม่ได้ตัวเลข ได้แถวเดียวต่อหนึ่ง
+    // ประเภทอัตรา ว่างเหมือนเดิม ทั้งช่วงปี 2026 และช่วงธันวาคม 2024
+    // พารามิเตอร์นี้จึง "ถูกตามเอกสาร" แต่ไม่ใช่สาเหตุที่ข้อมูลว่าง
+    // เก็บไว้เพราะตรงตามเอกสารและจะทำงานทันทีถ้า ธปท. กลับมาเผยแพร่
     dimensionParam: { name: 'rate_type', from: 'rate_type_name_eng', maxValues: 6 },
     valueFields: {
       default: ['interest_rate'],
@@ -306,7 +315,12 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     // interest_rate — หนึ่งแถวต่อประเภทอัตรา (เช่น "US Discount Rate") มิติจึงมาจากคอลัมน์
     dimensionField: 'rate_type_name_eng',
     // เอกสารของ ธปท. ระบุ rate_type ไว้เป็นพารามิเตอร์เสริม (ตัวอย่าง "ONSHORE : T/N")
-    // ถ้าไม่ส่งไป endpoint จะคืนสารบัญ คือรายชื่อประเภทอัตราครบ แต่ไม่มีวันที่และไม่มีค่า
+    // ไม่ส่งไป = ได้สารบัญ คือรายชื่อประเภทอัตราครบ แต่ไม่มีวันที่และไม่มีค่า
+    //
+    // ทดสอบกับ ธปท. จริงแล้ว: ส่ง rate_type ไปก็ยังไม่ได้ตัวเลข ได้แถวเดียวต่อหนึ่ง
+    // ประเภทอัตรา ว่างเหมือนเดิม ทั้งช่วงปี 2026 และช่วงธันวาคม 2024
+    // พารามิเตอร์นี้จึง "ถูกตามเอกสาร" แต่ไม่ใช่สาเหตุที่ข้อมูลว่าง
+    // เก็บไว้เพราะตรงตามเอกสารและจะทำงานทันทีถ้า ธปท. กลับมาเผยแพร่
     dimensionParam: { name: 'rate_type', from: 'rate_type_name_eng', maxValues: 6 },
     valueFields: {
       default: ['interest_rate'],
