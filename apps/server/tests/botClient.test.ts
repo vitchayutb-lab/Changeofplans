@@ -516,3 +516,26 @@ describe('ชุดที่ต้องบอกชื่อชุดย่อ�
     expect(new URL(url).pathname).toBe('/Stat-ThaiBahtImpliedInterestRate/v2/THB_IMPL_INT_RATE/');
   });
 });
+
+describe('path ของ endpoint ที่ยืนยันกับพอร์ทัล ธปท. แล้ว', () => {
+  // path เหล่านี้มาจากบรรทัด GET ในหน้า API specification ไม่ใช่จากการคาด
+  // การแก้ให้ผิดจะได้ 404 ที่เสียเวลาไล่หาใหม่ทั้งรอบ
+  const CONFIRMED: Record<string, string> = {
+    bibor: '/BIBOR/v2/bibor_rate/',
+    thb_implied_rate: '/Stat-ThaiBahtImpliedInterestRate/v2/THB_IMPL_INT_RATE/',
+    external_rate: '/Stat-ExternalInterestRate/v2/EXT_INT_RATE/',
+    spot_rate: '/Stat-SpotRate/v2/SPOTRATE/',
+    interbank_rate: '/Stat-InterbankTransactionRate/v2/INTRBNK_TXN_RATE/',
+  };
+
+  for (const [id, path] of Object.entries(CONFIRMED)) {
+    it(`${id} ชี้ไปที่ ${path}`, () => {
+      expect(BOT_SERIES[id as keyof typeof BOT_SERIES].path).toBe(path);
+    });
+  }
+
+  it('bibor ไม่ใช่ bibor_avg_rate — คนละ resource คนละความหมาย', () => {
+    // product เดียวกันมีทั้งอัตรารายวันและค่าเฉลี่ย ชุดนี้ต้องการรายวัน
+    expect(BOT_SERIES.bibor.path).not.toContain('avg');
+  });
+});
