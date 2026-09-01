@@ -15,6 +15,8 @@ export interface BotFetchParams {
   end?: string;
   /** สกุลเงิน เช่น USD (เฉพาะชุดข้อมูลอัตราแลกเปลี่ยน) */
   currency?: string;
+  /** ค่าของ dimensionParam ที่ต้องการ เช่น "ONSHORE : T/N" (client ใส่เอง) */
+  dimensionValue?: string;
 }
 
 /** คำอธิบายชุดข้อมูลหนึ่งชุด — เพิ่มชุดใหม่ = เพิ่มรายการเดียวในตารางนี้ */
@@ -79,6 +81,25 @@ export interface BotSeriesDescriptor {
   averageValueFields?: boolean;
   /** ถ้ากำหนด จะใช้ค่าในคอลัมน์นี้เป็นชื่อมิติ (เช่น currency_id -> "USD") */
   dimensionField?: string;
+  /**
+   * พารามิเตอร์ที่ต้องบอกว่าต้องการชุดย่อยไหน
+   *
+   * บาง endpoint ของ ธปท. ถ้าไม่ระบุจะคืน "สารบัญ" มาแทนข้อมูล คือรายชื่อชุดย่อยครบ
+   * ทุกชื่อ แต่วันที่กับตัวเลขว่างหมด (เจอกับ Thai Baht Implied Interest Rate และ
+   * External Interest Rate ซึ่งเอกสารระบุ rate_type ไว้เป็นพารามิเตอร์เสริม)
+   *
+   * เมื่อกำหนดไว้ client จะถามครั้งแรกเพื่อดูว่ามีชุดย่อยอะไรบ้าง แล้วค่อยถามทีละชุด
+   * อ่านรายชื่อจากผลลัพธ์จริงดีกว่าเขียนไว้ในโค้ด เพราะไม่ต้องเดาชื่อ และไม่ค้างเมื่อ
+   * ธปท. เพิ่มหรือเปลี่ยนชื่อชุดย่อย
+   */
+  dimensionParam?: {
+    /** ชื่อพารามิเตอร์ใน query string เช่น rate_type */
+    name: string;
+    /** คอลัมน์ในผลลัพธ์ที่บอกชื่อชุดย่อย เช่น rate_type_name_eng */
+    from: string;
+    /** ถามได้มากสุดกี่ชุดย่อย — external_rate มี 38 ชุด ยิงครบคือถล่ม ธปท. */
+    maxValues: number;
+  };
   description: string;
 }
 

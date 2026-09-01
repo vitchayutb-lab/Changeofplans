@@ -278,6 +278,9 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     // ตรวจกับผลลัพธ์จริงแล้ว: คอลัมน์คือ period, rate_type_name_th, rate_type_name_eng,
     // interest_rate — หนึ่งแถวต่อประเภทอัตรา (เช่น "ONSHORE : T/N") มิติจึงมาจากคอลัมน์
     dimensionField: 'rate_type_name_eng',
+    // เอกสารของ ธปท. ระบุ rate_type ไว้เป็นพารามิเตอร์เสริม (ตัวอย่าง "ONSHORE : T/N")
+    // ถ้าไม่ส่งไป endpoint จะคืนสารบัญ คือรายชื่อประเภทอัตราครบ แต่ไม่มีวันที่และไม่มีค่า
+    dimensionParam: { name: 'rate_type', from: 'rate_type_name_eng', maxValues: 6 },
     valueFields: {
       default: ['interest_rate'],
     },
@@ -302,6 +305,9 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     // ตรวจกับผลลัพธ์จริงแล้ว: คอลัมน์คือ period, rate_type_name_th, rate_type_name_eng,
     // interest_rate — หนึ่งแถวต่อประเภทอัตรา (เช่น "US Discount Rate") มิติจึงมาจากคอลัมน์
     dimensionField: 'rate_type_name_eng',
+    // เอกสารของ ธปท. ระบุ rate_type ไว้เป็นพารามิเตอร์เสริม (ตัวอย่าง "ONSHORE : T/N")
+    // ถ้าไม่ส่งไป endpoint จะคืนสารบัญ คือรายชื่อประเภทอัตราครบ แต่ไม่มีวันที่และไม่มีค่า
+    dimensionParam: { name: 'rate_type', from: 'rate_type_name_eng', maxValues: 6 },
     valueFields: {
       default: ['interest_rate'],
     },

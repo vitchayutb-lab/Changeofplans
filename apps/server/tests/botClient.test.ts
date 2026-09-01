@@ -408,3 +408,111 @@ describe('path ของทุกชุดตรงกับที่เอก�
     expect(url.pathname).toBe('/Stat-SpotRate/v2/SPOTRATE/');
   });
 });
+
+describe('ชุดที่ต้องบอกชื่อชุดย่อย (rate_type)', () => {
+  const SLICES = ['ONSHORE : T/N', 'ONSHORE : 1M'];
+
+  function envelope(rows: unknown[]): unknown {
+    return { result: { data: { data_header: { last_updated: '2026-08-29 07:00:00' }, data_detail: rows } } };
+  }
+
+  function clientWith(handler: (url: string) => Promise<Response>) {
+    return client(((url: string) => handler(url)) as unknown as typeof fetch);
+  }
+
+  /** สารบัญ: ครบทุกชื่อ แต่วันที่กับค่าว่างหมด — ของจริงจาก ธปท. เมื่อไม่ส่ง rate_type */
+  function catalogue(): unknown {
+    return envelope(
+      SLICES.map((name) => ({
+        period: '',
+        rate_type_name_th: name,
+        rate_type_name_eng: name,
+        interest_rate: '',
+      })),
+    );
+  }
+
+  function dataFor(name: string): unknown {
+    return envelope([
+      { period: '2026-08-28', rate_type_name_eng: name, interest_rate: '1.4500' },
+      { period: '2026-08-29', rate_type_name_eng: name, interest_rate: '1.4600' },
+    ]);
+  }
+
+  it('ได้สารบัญมาแล้วถามต่อทีละชุด แล้วรวมผล', async () => {
+    const urls: string[] = [];
+    const client = clientWith(async (url: string) => {
+      urls.push(url);
+      const value = new URL(url).searchParams.get('rate_type');
+      return jsonResponse(value === null ? catalogue() : dataFor(value));
+    });
+
+    const result = await client.fetchSeries(BOT_SERIES.thb_implied_rate, {
+      start: '2026-08-01',
+      end: '2026-08-30',
+    });
+
+    expect(urls).toHaveLength(1 + SLICES.length);
+    expect(new URL(urls[1]).searchParams.get('rate_type')).toBe('ONSHORE : T/N');
+    expect(result.observations).toHaveLength(4);
+    expect([...new Set(result.observations.map((o) => o.dimension))].sort()).toEqual(
+      [...SLICES].sort(),
+    );
+  });
+
+  it('ถามไม่เกินเพดานที่ตั้งไว้ ไม่ยิงครบทุกชุดย่อย', async () => {
+    // external_rate มี 38 ประเภท ยิงครบคือถล่ม ธปท. ด้วยคำขอเดียวของผู้ใช้คนเดียว
+    const many = Array.from({ length: 38 }, (_, i) => `Rate ${i}`);
+    let calls = 0;
+    const client = clientWith(async (url: string) => {
+      calls += 1;
+      const value = new URL(url).searchParams.get('rate_type');
+      return jsonResponse(
+        value === null
+          ? envelope(many.map((name) => ({ period: '', rate_type_name_eng: name, interest_rate: '' })))
+          : dataFor(value),
+      );
+    });
+
+    await client.fetchSeries(BOT_SERIES.external_rate, { start: '2026-08-01', end: '2026-08-30' });
+    expect(calls).toBe(1 + BOT_SERIES.external_rate.dimensionParam!.maxValues);
+  });
+
+  it('คำขอแรกได้ข้อมูลเลยก็ไม่ต้องถามซ้ำ', async () => {
+    // ถ้าวันหนึ่ง ธปท. คืนข้อมูลมาตั้งแต่คำขอแรก ต้องไม่ยิงเพิ่มโดยเปล่าประโยชน์
+    let calls = 0;
+    const client = clientWith(async () => {
+      calls += 1;
+      return jsonResponse(dataFor('ONSHORE : T/N'));
+    });
+
+    const result = await client.fetchSeries(BOT_SERIES.thb_implied_rate, {
+      start: '2026-08-01',
+      end: '2026-08-30',
+    });
+    expect(calls).toBe(1);
+    expect(result.observations).toHaveLength(2);
+  });
+
+  it('ชุดย่อยใดพัง ถือว่าพังทั้งหมด ไม่ส่งกราฟที่ขาดเส้นไปเงียบ ๆ', async () => {
+    const client = clientWith(async (url: string) => {
+      const value = new URL(url).searchParams.get('rate_type');
+      if (value === null) return jsonResponse(catalogue());
+      if (value === 'ONSHORE : 1M') return jsonResponse({ message: 'boom' }, { status: 500 });
+      return jsonResponse(dataFor(value));
+    });
+
+    await expect(
+      client.fetchSeries(BOT_SERIES.thb_implied_rate, { start: '2026-08-01', end: '2026-08-30' }),
+    ).rejects.toThrow();
+  });
+
+  it('ใส่ rate_type ลงใน query string ไม่ใช่ลงใน path', async () => {
+    const url = new LiveBotClient({ apiKey: 'k', baseUrl: 'https://example.test' }).buildUrl(
+      BOT_SERIES.thb_implied_rate,
+      { start: '2026-08-01', end: '2026-08-30', dimensionValue: 'ONSHORE : T/N' },
+    );
+    expect(new URL(url).searchParams.get('rate_type')).toBe('ONSHORE : T/N');
+    expect(new URL(url).pathname).toBe('/Stat-ThaiBahtImpliedInterestRate/v2/THB_IMPL_INT_RATE/');
+  });
+});
