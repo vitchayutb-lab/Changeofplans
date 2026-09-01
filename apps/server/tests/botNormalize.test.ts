@@ -377,8 +377,59 @@ describe('ข้อความเมื่อไม่เหลือค่า�
     } catch (error) {
       message = (error as Error).message;
     }
-    expect(message).toContain('ตัวอย่างแถวแรก');
     expect(message).toContain('bid_rate="-"');
+  });
+
+  it('ยกแถวที่มีค่ามากที่สุดมาโชว์ ไม่ใช่แถวแรกที่บังเอิญว่าง', () => {
+    // เคสจริงจาก Stat-ExternalInterestRate: แถวแรกมีแต่ชื่อประเภท ไม่มีทั้งวันที่และค่า
+    // การโชว์แถวแรกทำให้ตัวอย่างไม่บอกอะไรเลย และเสียเวลาไปหนึ่งรอบเต็ม
+    let message = '';
+    try {
+      normalizeSeries(
+        BOT_SERIES.spot_rate,
+        envelope([
+          { period: '', bid_rate: '', offer_rate: '', note: 'หัวตาราง' },
+          { period: '2026-08-27', bid_rate: '-', offer_rate: '-', note: 'ของจริง' },
+        ]),
+      );
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toContain('2026-08-27');
+    expect(message).toContain('ของจริง');
+  });
+
+  it('อ่านวันที่ไม่ได้ทั้งหมด แนบส่วนหัวมาด้วย เพราะวันที่ต้องไปอยู่ที่อื่น', () => {
+    let message = '';
+    try {
+      normalizeSeries(
+        BOT_SERIES.spot_rate,
+        envelope([{ period: '', bid_rate: '1.5', offer_rate: '1.6' }], {
+          as_of_date: '2026-08-29',
+        }),
+      );
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toContain('ส่วนหัว');
+    expect(message).toContain('as_of_date');
+    expect(message).toContain('2026-08-29');
+  });
+
+  it('บอกจำนวนแถวที่ว่างทั้งแถว เพื่อแยกออกจากแถวที่อ่านไม่ออก', () => {
+    let message = '';
+    try {
+      normalizeSeries(
+        BOT_SERIES.spot_rate,
+        envelope([
+          { period: '', bid_rate: '', offer_rate: '' },
+          { period: '2026-08-27', bid_rate: '-', offer_rate: '-' },
+        ]),
+      );
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toContain('1/2');
   });
 });
 
@@ -447,4 +498,76 @@ describe('ชุดดอกเบี้ยเงินกู้ต้องไ�
     const { observations } = normalizeSeries(BOT_SERIES.lending_rate, LOAN_RATE_RESPONSE);
     expect([...new Set(observations.map((o) => o.dimension))].sort()).toEqual(['MLR', 'MOR', 'MRR']);
   });
+});
+
+describe('ชุดข้อมูลที่แก้ตามผลลัพธ์จริงของ ธปท.', () => {
+  it('interbank_rate: อ่านค่าเฉลี่ยถ่วงน้ำหนัก และแยกมิติตามช่วงอายุ', () => {
+    // แถวจริงจาก /Stat-InterbankTransactionRate/v2/INTRBNK_TXN_RATE/
+    const { observations } = normalizeSeries(
+      BOT_SERIES.interbank_rate,
+      envelope([
+        {
+          period: '2026-08-28',
+          term_type_name_th: 'O/N',
+          term_type_name_eng: 'O/N',
+          min_interest_rate: '0.90000',
+          max_interest_rate: '1.00500',
+          mode_interest_rate: '0.90000',
+          weighted_average_interest_rate: '0.95790',
+        },
+      ]),
+    );
+
+    expect(observations).toEqual([{ period: '2026-08-28', dimension: 'O/N', value: 0.9579 }]);
+  });
+
+  it('interbank_rate: ช่วงอายุที่ไม่ได้ประกาศไว้ล่วงหน้าก็ยังได้ค่า', () => {
+    // ธปท. ส่งมาสิบกว่าช่วงอายุ การประกาศไว้ไม่ครบต้องไม่ทำให้ข้อมูลหาย
+    const { observations } = normalizeSeries(
+      BOT_SERIES.interbank_rate,
+      envelope([
+        { period: '2026-08-28', term_type_name_eng: '1W', weighted_average_interest_rate: '1.05' },
+      ]),
+    );
+    expect(observations).toEqual([{ period: '2026-08-28', dimension: '1W', value: 1.05 }]);
+  });
+
+  it('interbank_rate: ไม่หยิบขอบของช่วงมาแทนค่าเฉลี่ย', () => {
+    // min/max/mode อยู่ในแถวเดียวกัน ถ้าหลุดเข้าไปใน valueFields ตัวเลขจะเพี้ยนแบบเงียบ ๆ
+    // ไม่มีค่าเฉลี่ยถ่วงน้ำหนักให้อ่านต้องดัง ไม่ใช่เอาขอบล่างมาแทนแล้วเงียบ
+    expect(() =>
+      normalizeSeries(
+        BOT_SERIES.interbank_rate,
+        envelope([
+          {
+            period: '2026-08-28',
+            term_type_name_eng: 'O/N',
+            min_interest_rate: '0.90000',
+            max_interest_rate: '1.00500',
+          },
+        ]),
+      ),
+    ).toThrow(/คอลัมน์ค่าที่รองรับ: weighted_average_interest_rate ·/);
+  });
+
+  for (const id of ['thb_implied_rate', 'external_rate'] as const) {
+    it(`${id}: อ่าน interest_rate และแยกมิติตามประเภทอัตรา`, () => {
+      // คอลัมน์ยืนยันแล้วจากผลลัพธ์จริง ที่ยังไม่รู้คือวันที่ไปอยู่ที่ไหน
+      // เทสต์นี้จึงใส่วันที่ให้ เพื่อตรวจเฉพาะส่วนที่รู้แล้วว่าถูก
+      const { observations } = normalizeSeries(
+        BOT_SERIES[id],
+        envelope([
+          {
+            period: '2026-08-28',
+            rate_type_name_th: 'ONSHORE : T/N',
+            rate_type_name_eng: 'ONSHORE : T/N',
+            interest_rate: '1.4500',
+          },
+        ]),
+      );
+      expect(observations).toEqual([
+        { period: '2026-08-28', dimension: 'ONSHORE : T/N', value: 1.45 },
+      ]);
+    });
+  }
 });

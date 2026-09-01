@@ -213,29 +213,41 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     unit: 'percent_per_annum',
     ttlSeconds: 30 * MINUTE,
     supportsDateRange: true,
-    // ทุก endpoint ที่ยืนยันแล้วตอบ 400 เมื่อขอ 90 วัน และหน้าข้อมูลตลาดตั้งต้นที่ 90 วัน
-    // ชุดนี้ยังไม่เคยยืนยันกับ ธปท. จริง จึงตั้งเท่าที่รู้ว่ารับได้ ไม่ปล่อยให้พังตั้งแต่คลิกแรก
     maxRangeDays: 31,
     supportsCurrency: false,
-    dimensions: ['overnight'],
+    // ธปท. ส่งหลายช่วงอายุมาในชุดเดียว มิติจึงมาจากคอลัมน์ ไม่ใช่จากรายการที่ประกาศไว้
+    // ยืนยันแล้วว่ามี O/N ที่เหลือมาเท่าที่ผลลัพธ์มี เหมือน fx_average ที่ใช้ currency_id
+    dimensions: ['O/N'],
+    dimensionField: 'term_type_name_eng',
     periodFields: ['period', 'date'],
+    // ตรวจกับผลลัพธ์จริงแล้ว: หนึ่งแถวต่อ (วัน, ช่วงอายุ) มีทั้ง min/max/mode และค่าเฉลี่ยถ่วงน้ำหนัก
+    // เลือกค่าเฉลี่ยถ่วงน้ำหนัก เพราะเป็นอัตราที่เกิดจากธุรกรรมจริงทั้งตลาด ไม่ใช่ขอบของช่วง
     valueFields: {
-      overnight: ['overnight', 'rate_overnight', 'rate', 'average', 'avg_rate'],
+      default: ['weighted_average_interest_rate'],
     },
-    nestedArrayKeys: ['detail', 'observation', 'rate_detail'],
-    description: 'อัตราดอกเบี้ยกู้ยืมระหว่างธนาคารระยะข้ามคืน สะท้อนสภาพคล่องในตลาดเงิน',
+    nestedArrayKeys: [],
+    description:
+      'อัตราดอกเบี้ยกู้ยืมระหว่างธนาคารแยกตามช่วงอายุ (ค่าเฉลี่ยถ่วงน้ำหนักของธุรกรรมจริง) ' +
+      'สะท้อนสภาพคล่องในตลาดเงิน',
   },
 
   bibor: {
     id: 'bibor',
     title: 'Bangkok Interbank Offered Rate (BIBOR)',
     titleTh: 'อัตราดอกเบี้ยอ้างอิงระยะสั้นตลาดกรุงเทพ (BIBOR)',
+    //
+    // ยังหา path ที่ถูกไม่เจอ — ค่านี้ให้ 404 จาก backend ไม่ใช่จาก gateway
+    //
+    // gateway ยอมรับ /BIBOR/v2/ แล้วส่งต่อไปที่ .../Stat/BIBOR/api/bibor/ ซึ่งตอบว่า
+    // "No HTTP resource was found" แปลว่า product นี้สมัครไว้แล้วและ gateway รู้จัก
+    // เหลือแค่ชื่อ resource ท้าย path ที่ยังไม่ตรง ต้องดูจากบรรทัด GET ในหน้า API
+    // specification ของพอร์ทัล ธปท. — วิธีเดียวกับที่แก้ spot_rate ได้
+    // (ตอนนั้นบรรทัด GET มี slash ปิดท้าย ส่วน "Listen path" ในหน้า Overview ไม่มี)
     path: '/BIBOR/v2/bibor/',
     unit: 'percent_per_annum',
     ttlSeconds: 30 * MINUTE,
     supportsDateRange: true,
-    // ทุก endpoint ที่ยืนยันแล้วตอบ 400 เมื่อขอ 90 วัน และหน้าข้อมูลตลาดตั้งต้นที่ 90 วัน
-    // ชุดนี้ยังไม่เคยยืนยันกับ ธปท. จริง จึงตั้งเท่าที่รู้ว่ารับได้ ไม่ปล่อยให้พังตั้งแต่คลิกแรก
+    // ยังไม่เคยได้ผลลัพธ์จริง ตั้งเท่าที่ยืนยันแล้วว่า endpoint อื่นรับได้
     maxRangeDays: 31,
     supportsCurrency: false,
     dimensions: ['1m', '3m', '6m'],
@@ -257,18 +269,19 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     unit: 'percent_per_annum',
     ttlSeconds: 6 * HOUR,
     supportsDateRange: true,
-    // ทุก endpoint ที่ยืนยันแล้วตอบ 400 เมื่อขอ 90 วัน และหน้าข้อมูลตลาดตั้งต้นที่ 90 วัน
-    // ชุดนี้ยังไม่เคยยืนยันกับ ธปท. จริง จึงตั้งเท่าที่รู้ว่ารับได้ ไม่ปล่อยให้พังตั้งแต่คลิกแรก
+    // ยืนยันแล้วว่า ธปท. รับช่วง 30 วันของชุดนี้ได้ (endpoint อื่นตอบ 400 ที่ 90 วัน)
     maxRangeDays: 31,
     supportsCurrency: false,
-    dimensions: ['1m', '3m', '6m'],
+    // ชื่อประเภทอัตราที่ยืนยันแล้วจากผลลัพธ์จริง ที่เหลือมาเท่าที่ ธปท. ส่งมา
+    dimensions: ['ONSHORE : T/N'],
     periodFields: ['period', 'date'],
+    // ตรวจกับผลลัพธ์จริงแล้ว: คอลัมน์คือ period, rate_type_name_th, rate_type_name_eng,
+    // interest_rate — หนึ่งแถวต่อประเภทอัตรา (เช่น "ONSHORE : T/N") มิติจึงมาจากคอลัมน์
+    dimensionField: 'rate_type_name_eng',
     valueFields: {
-      '1m': ['rate_1m', 'implied_1m', '1m'],
-      '3m': ['rate_3m', 'implied_3m', '3m'],
-      '6m': ['rate_6m', 'implied_6m', '6m'],
+      default: ['interest_rate'],
     },
-    nestedArrayKeys: ['detail', 'observation'],
+    nestedArrayKeys: [],
     description: 'อัตราดอกเบี้ยเงินบาทที่คำนวณย้อนจากธุรกรรมสวอปเงินตราต่างประเทศ',
   },
 
@@ -280,18 +293,19 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     unit: 'percent_per_annum',
     ttlSeconds: 6 * HOUR,
     supportsDateRange: true,
-    // ทุก endpoint ที่ยืนยันแล้วตอบ 400 เมื่อขอ 90 วัน และหน้าข้อมูลตลาดตั้งต้นที่ 90 วัน
-    // ชุดนี้ยังไม่เคยยืนยันกับ ธปท. จริง จึงตั้งเท่าที่รู้ว่ารับได้ ไม่ปล่อยให้พังตั้งแต่คลิกแรก
+    // ยืนยันแล้วว่า ธปท. รับช่วง 30 วันของชุดนี้ได้ (endpoint อื่นตอบ 400 ที่ 90 วัน)
     maxRangeDays: 31,
     supportsCurrency: false,
-    dimensions: ['fed_funds', 'sofr', 'ecb'],
+    // ชื่อประเภทอัตราที่ยืนยันแล้วจากผลลัพธ์จริง ที่เหลือมาเท่าที่ ธปท. ส่งมา
+    dimensions: ['US Discount Rate'],
     periodFields: ['period', 'date'],
+    // ตรวจกับผลลัพธ์จริงแล้ว: คอลัมน์คือ period, rate_type_name_th, rate_type_name_eng,
+    // interest_rate — หนึ่งแถวต่อประเภทอัตรา (เช่น "US Discount Rate") มิติจึงมาจากคอลัมน์
+    dimensionField: 'rate_type_name_eng',
     valueFields: {
-      fed_funds: ['fed_fund_rate', 'fed_funds', 'us_rate'],
-      sofr: ['sofr', 'sofr_rate'],
-      ecb: ['ecb_rate', 'euro_rate', 'ecb'],
+      default: ['interest_rate'],
     },
-    nestedArrayKeys: ['detail', 'observation'],
+    nestedArrayKeys: [],
     description: 'อัตราดอกเบี้ยอ้างอิงของต่างประเทศ ใช้เทียบทิศทางดอกเบี้ยโลกกับไทย',
   },
 };
