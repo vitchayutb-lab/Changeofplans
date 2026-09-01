@@ -274,11 +274,17 @@ export function normalizeSeries(
           `— คอลัมน์ค่าที่รองรับ: ${Object.values(descriptor.valueFields).flat().join(', ')}` +
           (descriptor.treatZeroAsMissing ? ' (ค่า 0 ถือว่าไม่มีข้อมูล)' : '');
 
+    const blanks = rows.filter(isBlankRow).length;
+
     throw new BotApiError(
       `BOT response for "${descriptor.id}": ${stage} · ` +
         `คอลัมน์ที่ได้มา: ${seenColumns.join(', ') || 'ไม่มีคอลัมน์'} · ` +
-        `ตัวอย่างแถวแรก: {${sampleRow(rows[0])}} ` +
-        '— ปรับ periodFields/valueFields ใน botSeries.ts ให้ตรงกับผลลัพธ์จริง',
+        `ตัวอย่างแถวที่มีค่ามากที่สุด: {${sampleRow(mostPopulated(rows))}}` +
+        (blanks > 0 ? ` · แถวที่ทุกคอลัมน์ว่าง ${blanks}/${rows.length} แถว` : '') +
+        // วันที่อ่านไม่ได้ทุกแถวแปลว่ามันไม่ได้อยู่ในแถว คำถามถัดไปคือ "แล้วอยู่ไหน"
+        // ส่วนหัวคือที่แรกที่ต้องดู จึงแนบไปด้วยเลย ไม่ต้องรอถามอีกรอบ
+        (droppedByPeriod === rows.length ? ` · ส่วนหัว: {${headerFields(payload)}}` : '') +
+        ' — ปรับ periodFields/valueFields ใน botSeries.ts ให้ตรงกับผลลัพธ์จริง',
       'response',
     );
   }
@@ -297,6 +303,37 @@ function isBlankRow(row: Row): boolean {
   return Object.values(row).every(
     (value) => value === null || value === undefined || String(value).trim() === '',
   );
+}
+
+/**
+ * แถวที่มีค่าไม่ว่างมากที่สุด
+ *
+ * เดิมหยิบแถวแรกมาโชว์เสมอ ซึ่งพังตอน ธปท. ขึ้นต้นด้วยแถวที่คอลัมน์ค่าว่างหมด —
+ * ตัวอย่างที่ได้ไม่บอกอะไรเลย และเสียเวลาไปหนึ่งรอบเต็มกว่าจะรู้ว่าข้อมูลจริงหน้าตาอย่างไร
+ */
+function mostPopulated(rows: Row[]): Row | undefined {
+  let best: Row | undefined;
+  let bestScore = -1;
+  for (const row of rows) {
+    const score = Object.values(row).filter(
+      (value) => value !== null && value !== undefined && String(value).trim() !== '',
+    ).length;
+    if (score > bestScore) {
+      best = row;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/** ส่วนหัวของผลลัพธ์แบบย่อ — ที่ที่วันที่ไปอยู่เมื่อไม่ได้อยู่ในแถว */
+function headerFields(payload: unknown): string {
+  if (!isRecord(payload)) return 'ไม่มี';
+  const result = isRecord(payload.result) ? payload.result : payload;
+  const data = isRecord(result.data) ? result.data : {};
+  const header = isRecord(data.data_header) ? data.data_header : null;
+  if (!header) return `ไม่มี data_header · result{${keysOf(result)}}`;
+  return sampleRow(header);
 }
 
 /** ตัวอย่างแถวหนึ่งแถวแบบย่อ ใช้ดูว่าค่าที่ ธปท. ส่งมาหน้าตาเป็นอย่างไรจริง ๆ */
