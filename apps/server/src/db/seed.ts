@@ -273,7 +273,35 @@ interface SeedProgram {
   minDscr: number | null;
   descriptionTh: string;
   descriptionEn: string;
-  url: string | null;
+}
+
+/**
+ * เว็บไซต์ทางการของผู้ให้บริการ
+ *
+ * ลิงก์หยุดอยู่ที่หน้าเว็บของหน่วยงาน ไม่ใช่ลิงก์ตรงไปยังหน้าโครงการ เพราะ
+ * เส้นทางของหน้าโครงการเปลี่ยนบ่อยกว่าโดเมน ลิงก์ที่ตายแล้วแย่กว่าลิงก์ที่
+ * พาไปถึงหน้าแรกแล้วต้องกดต่ออีกครั้ง หน้าจอจึงเรียกลิงก์นี้ว่า
+ * "เว็บไซต์ผู้ให้บริการ" ตามที่มันเป็นจริง
+ *
+ * กองทุนร่วมลงทุนเพื่อ SME ไม่มีในตารางนี้ เพราะเป็นผู้ให้บริการสมมติที่ใช้
+ * สาธิตประเภท equity ไม่ใช่หน่วยงานจริง การแต่งลิงก์ให้จึงเป็นการอ้างเท็จ
+ */
+const PROVIDER_SITES: Record<string, string> = {
+  'ธนาคารพัฒนาวิสาหกิจขนาดกลางและขนาดย่อมแห่งประเทศไทย (SME D Bank)': 'https://www.smebank.co.th',
+  'บรรษัทประกันสินเชื่ออุตสาหกรรมขนาดย่อม (บสย. / TCG)': 'https://www.tcg.or.th',
+  'กรมส่งเสริมอุตสาหกรรม (DIP)': 'https://www.dip.go.th',
+  'ธนาคารออมสิน': 'https://www.gsb.or.th',
+  'ธนาคารเพื่อการส่งออกและนำเข้าแห่งประเทศไทย (EXIM Bank)': 'https://www.exim.go.th',
+  'สำนักงานนวัตกรรมแห่งชาติ (NIA)': 'https://www.nia.or.th',
+  'ธนาคารกรุงเทพ': 'https://www.bangkokbank.com',
+  'สำนักงานส่งเสริมเศรษฐกิจดิจิทัล (depa)': 'https://www.depa.or.th',
+  'ธนาคารกรุงไทย': 'https://krungthai.com',
+  'ธนาคารกสิกรไทย': 'https://www.kasikornbank.com',
+};
+
+/** เว็บไซต์ของผู้ให้บริการรายนี้ — null เมื่อไม่ใช่หน่วยงานจริง */
+export function programUrl(provider: string): string | null {
+  return PROVIDER_SITES[provider] ?? null;
 }
 
 const PROGRAMS: SeedProgram[] = [
@@ -290,7 +318,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: 1.2,
     descriptionTh: 'สินเชื่อเพื่อปรับปรุงเครื่องจักรและยกระดับกระบวนการผลิตของ SME อัตราคงที่ ผ่อนได้สูงสุด 7 ปี',
     descriptionEn: 'Term loan for machinery upgrades and process improvement, fixed rate, up to 7 years.',
-    url: null,
   },
   {
     id: 'fp-tcg-pgs',
@@ -305,7 +332,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: null,
     descriptionTh: 'ค้ำประกันสินเชื่อให้ SME ที่หลักประกันไม่พอ ช่วยให้ธนาคารอนุมัติวงเงินได้ง่ายขึ้น มีค่าธรรมเนียมค้ำประกันรายปี',
     descriptionEn: 'Credit guarantee for SMEs with insufficient collateral; annual guarantee fee applies.',
-    url: null,
   },
   {
     id: 'fp-dip-innovation',
@@ -320,7 +346,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: null,
     descriptionTh: 'เงินให้เปล่าแบบร่วมจ่าย สำหรับพัฒนาผลิตภัณฑ์หรือปรับปรุงกระบวนการผลิต ไม่ต้องคืนเงินต้น',
     descriptionEn: 'Matching grant for product development or process improvement; no repayment.',
-    url: null,
   },
   {
     id: 'fp-gsb-green',
@@ -335,7 +360,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: true, minDscr: 1.3,
     descriptionTh: 'สินเชื่อลงทุนด้านพลังงานสะอาดและลดการปล่อยคาร์บอน อัตราอ้างอิง MLR บวกส่วนต่าง ต้องมีหลักประกัน',
     descriptionEn: 'Investment loan for clean energy and emission reduction; priced off MLR, collateral required.',
-    url: null,
   },
   {
     id: 'fp-exim-export',
@@ -350,7 +374,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: 1.15,
     descriptionTh: 'เงินทุนหมุนเวียนก่อนและหลังการส่งออก พร้อมเครื่องมือป้องกันความเสี่ยงอัตราแลกเปลี่ยน',
     descriptionEn: 'Pre- and post-shipment working capital with FX hedging support for exporters.',
-    url: null,
   },
   {
     id: 'fp-nia-openinnovation',
@@ -365,7 +388,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: null,
     descriptionTh: 'ทุนให้เปล่าสำหรับโครงการนวัตกรรมที่พิสูจน์แนวคิดแล้ว เน้นธุรกิจขนาดเล็กที่ขยายผลได้',
     descriptionEn: 'Grant for proven-concept innovation projects, aimed at small scalable businesses.',
-    url: null,
   },
   {
     id: 'fp-bkk-microloan',
@@ -380,7 +402,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: 1.0,
     descriptionTh: 'วงเงินขนาดเล็กสำหรับเสริมสภาพคล่อง อนุมัติเร็ว อ้างอิงอัตรา MRR บวกส่วนต่าง (เขตกรุงเทพฯ และปริมณฑล)',
     descriptionEn: 'Small working-capital facility, fast approval, priced off MRR (Bangkok and vicinity).',
-    url: null,
   },
   {
     id: 'fp-depa-voucher',
@@ -395,7 +416,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: null,
     descriptionTh: 'เงินสนับสนุนค่าใช้จ่ายซอฟต์แวร์และระบบดิจิทัลที่ขึ้นทะเบียน ช่วยลดต้นทุนการปรับตัวของ SME',
     descriptionEn: 'Subsidy covering registered software and digital systems adoption costs.',
-    url: null,
   },
   {
     id: 'fp-ktb-supplychain',
@@ -410,7 +430,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: 1.1,
     descriptionTh: 'วงเงินหมุนเวียนอิงใบสั่งซื้อจากคู่ค้ารายใหญ่ ช่วยแก้ปัญหาลูกหนี้การค้าเก็บเงินช้า',
     descriptionEn: 'Revolving facility against purchase orders from anchor buyers; eases receivable delays.',
-    url: null,
   },
   {
     id: 'fp-smed-newentrepreneur',
@@ -425,7 +444,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: null,
     descriptionTh: 'สินเชื่อสำหรับผู้เริ่มต้นธุรกิจที่ยังไม่มีงบการเงินย้อนหลัง เน้นแผนธุรกิจและกระแสเงินสดที่คาดการณ์ วงเงินไม่สูงแต่เข้าถึงง่ายที่สุดสำหรับรายใหม่',
     descriptionEn: 'Entry loan for new businesses without a financial track record; assessed on the business plan and projected cash flow.',
-    url: null,
   },
   {
     id: 'fp-gsb-microbiz',
@@ -440,7 +458,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: null,
     descriptionTh: 'วงเงินขนาดเล็กสำหรับร้านค้าและผู้ประกอบการรายย่อยที่เพิ่งเริ่มต้น ใช้บุคคลค้ำประกันแทนหลักประกันได้',
     descriptionEn: 'Small facility for micro-entrepreneurs; a personal guarantor can substitute for collateral.',
-    url: null,
   },
   {
     id: 'fp-tcg-microguarantee',
@@ -455,7 +472,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: null,
     descriptionTh: 'ค้ำประกันให้ผู้ประกอบการรายย่อยที่ไม่มีหลักประกันเลย เป็นทางที่ใช้บ่อยที่สุดเมื่อธนาคารปฏิเสธเพราะหลักประกันไม่พอ',
     descriptionEn: 'Guarantee for micro-entrepreneurs with no collateral — the usual route when a bank declines on security alone.',
-    url: null,
   },
   {
     id: 'fp-bank-startup-package',
@@ -470,7 +486,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: 1.1,
     descriptionTh: 'แพ็กเกจสำหรับกิจการที่เปิดมาแล้วอย่างน้อย 1 ปี มีรายการเดินบัญชีให้ธนาคารดู ใช้ประเมินจากกระแสเงินสดจริงมากกว่าหลักประกัน',
     descriptionEn: 'For businesses trading at least a year with bank statements to show; assessed on real cash flow rather than security.',
-    url: null,
   },
   {
     id: 'fp-equity-growth',
@@ -485,7 +500,6 @@ const PROGRAMS: SeedProgram[] = [
     requiresCollateral: false, minDscr: null,
     descriptionTh: 'ร่วมลงทุนแลกหุ้น ไม่มีภาระดอกเบี้ยและไม่ต้องมีหลักประกัน แต่ผู้ถือหุ้นเดิมจะถูกลดสัดส่วน',
     descriptionEn: 'Equity investment: no interest burden or collateral, but existing owners are diluted.',
-    url: null,
   },
 ];
 
@@ -645,6 +659,7 @@ export function seedDatabase(
           eligibleIndustries: JSON.stringify(program.eligibleIndustries),
           eligibleProvinces: JSON.stringify(program.eligibleProvinces),
           requiresCollateral: program.requiresCollateral ? 1 : 0,
+          url: programUrl(program.provider),
         });
         programs += 1;
       }
@@ -652,4 +667,29 @@ export function seedDatabase(
   }
 
   return { smes, statements, programs };
+}
+
+/**
+ * เติม url ของโครงการที่ยังว่างไว้
+ *
+ * seedDatabase ลงข้อมูลเฉพาะตอนตารางยังว่าง ฐานข้อมูลที่ใช้งานอยู่แล้วจึงไม่มี
+ * ทางได้ค่าที่เพิ่มเข้ามาทีหลัง ลิงก์จะขึ้นแต่บนเครื่องที่เพิ่งสร้างฐานใหม่
+ * เขียนเฉพาะแถวที่ยังเป็น NULL เพื่อไม่ลบค่าที่ผู้ดูแลระบบแก้ไว้เอง
+ */
+export function backfillProgramUrls(db: Db): number {
+  const rows = db
+    .prepare('SELECT id, provider FROM funding_programs WHERE url IS NULL')
+    .all() as { id: string; provider: string }[];
+
+  const update = db.prepare('UPDATE funding_programs SET url = @url WHERE id = @id');
+  let filled = 0;
+  db.transaction(() => {
+    for (const row of rows) {
+      const url = programUrl(row.provider);
+      if (url === null) continue;
+      update.run({ id: row.id, url });
+      filled += 1;
+    }
+  })();
+  return filled;
 }

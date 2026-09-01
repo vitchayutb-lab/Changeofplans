@@ -10,6 +10,7 @@ import type { FactorStatus, StartupAssessment, StartupProfile } from '@sme/share
 import { api, ApiError } from '../api/client';
 import { Card, Section } from '../components/primitives';
 import { SourceBadge } from '../components/SourceBadge';
+import { ProviderLink } from '../components/ReferenceLinks';
 import { formatMoney, formatPercent, formatTimes } from '../components/format';
 
 const INDUSTRIES: { value: StartupProfile['industry']; label: string }[] = [
@@ -399,6 +400,10 @@ function AssessmentResult({ result }: { result: StartupAssessment }) {
                   ))}
                 </ul>
               )}
+
+              <div className="row" style={{ marginTop: 12 }}>
+                <ProviderLink url={item.program.url} provider={item.program.provider} />
+              </div>
             </Card>
           ))}
         </div>

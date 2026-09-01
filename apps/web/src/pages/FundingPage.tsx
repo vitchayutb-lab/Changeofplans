@@ -7,6 +7,7 @@ import { useApi } from '../api/hooks';
 import { useApp } from '../context';
 import { AsyncBoundary, Card, Section, Verdict } from '../components/primitives';
 import { SourceBadge } from '../components/SourceBadge';
+import { ProviderLink } from '../components/ReferenceLinks';
 import { formatMoney, formatMoneyShort, formatPercent } from '../components/format';
 
 const TYPE_LABELS: Record<FundingType, string> = {
@@ -157,6 +158,7 @@ export function FundingPage() {
                       <button className="btn btn--sm" onClick={() => void track(match, 'preparing')}>
                         เริ่มเตรียมเอกสาร
                       </button>
+                      <ProviderLink url={match.program.url} provider={match.program.provider} />
                     </div>
 
                     <SourceBadge provenance={match.estimate?.provenance ?? null} compact />
