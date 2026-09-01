@@ -142,8 +142,8 @@ export class LiveBotClient implements BotApiClient {
       }
       try {
         const payload = await this.request(url);
-        const { observations, lastUpdated } = normalizeSeries(descriptor, payload);
-        return { observations, lastUpdated, unit: descriptor.unit };
+        const { observations, lastUpdated, rowCount } = normalizeSeries(descriptor, payload);
+        return { observations, lastUpdated, rowCount, unit: descriptor.unit };
       } catch (error) {
         const botError = toBotError(error);
         lastError = botError;

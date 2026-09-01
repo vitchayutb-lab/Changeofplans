@@ -295,6 +295,7 @@ export class BotService {
         ok: false,
         error: `DEMO MODE: ${botConfigGap() ?? 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ BOT'} — ทดสอบกับ ธปท. จริงไม่ได้`,
         observations: 0,
+        rows: 0,
         dimensionsWithData: [],
         firstPeriod: null,
         lastPeriod: null,
@@ -313,6 +314,7 @@ export class BotService {
         ok: true,
         error: null,
         observations: result.observations.length,
+        rows: result.rowCount,
         dimensionsWithData: [...new Set(result.observations.map((o) => o.dimension))].sort(),
         firstPeriod: periods[0] ?? null,
         lastPeriod: periods[periods.length - 1] ?? null,
@@ -326,6 +328,7 @@ export class BotService {
         ok: false,
         error: message,
         observations: 0,
+        rows: 0,
         dimensionsWithData: [],
         firstPeriod: null,
         lastPeriod: null,
@@ -356,15 +359,26 @@ export class BotService {
 
     // ดึงสำเร็จแต่ไม่มีข้อมูลในช่วงที่ขอ — ต้องบอกให้ชัด ไม่งั้นหน้าเว็บจะขึ้นขีดว่างเปล่า
     // โดยผู้ใช้ไม่รู้ว่าเรียกไม่ติดหรือ ธปท. ไม่มีข้อมูลกันแน่
+    // ดึงสำเร็จแต่ไม่มีตัวเลข — บอกเท่าที่รู้จริง ไม่สรุปสาเหตุแทน ธปท.
+    //
+    // เคยเขียนว่า "ธปท. อัปเดตรายงานนี้ล่าสุด <วันที่>" ต่อท้ายเหมือนเป็นคำอธิบาย
+    // ซึ่งอ่านแล้วเข้าใจว่าชุดข้อมูลหยุดเผยแพร่ แต่ last_updated ในส่วนหัวอยู่ปนกับ
+    // ฟิลด์ที่เป็นคำอธิบายรายงาน (แหล่งที่มา หมายเหตุ) จึงอาจเป็นวันที่แก้ตัวรายงาน
+    // ไม่ใช่วันที่ของข้อมูล — เอกสารของบางชุดระบุว่าเผยแพร่ทุกวันทำการด้วยซ้ำ
+    //
+    // จำนวนแถวคือสิ่งที่แยกสองกรณีออกจากกันจริง ๆ:
+    //   ศูนย์แถว   = ธปท. ไม่มีอะไรจะส่งในช่วงนี้
+    //   มีแถวแต่ว่าง = ส่งโครงรายงานมา แต่ไม่มีตัวเลขในช่วงที่ขอ
     const emptyNotice =
       result.observations.length === 0 && source === 'bot'
-        ? `ดึงข้อมูลจาก ธปท. สำเร็จ แต่ไม่มีข้อมูลของ "${descriptor.titleTh}" ในช่วง ` +
+        ? `ดึงข้อมูลจาก ธปท. สำเร็จ แต่ไม่มีตัวเลขของ "${descriptor.titleTh}" ในช่วง ` +
           `${params.start ?? '-'} ถึง ${params.end ?? '-'} ` +
-          // ธปท. บอกวันที่อัปเดตล่าสุดของรายงานมาในส่วนหัว ถ้ามันอยู่ก่อนช่วงที่ขอ
-          // นั่นคือคำตอบว่าทำไมถึงว่าง และดีกว่าปล่อยให้เดาว่าเป็นวันหยุด
+          (result.rowCount === 0
+            ? '(ธปท. ไม่ได้ส่งแถวข้อมูลมาเลย)'
+            : `(ธปท. ส่งโครงรายงานมา ${result.rowCount} แถว แต่ทุกแถวไม่มีค่า)`) +
           (result.lastUpdated
-            ? `(ธปท. อัปเดตรายงานนี้ล่าสุด ${result.lastUpdated.slice(0, 10)})`
-            : '(อาจไม่มีวันทำการในช่วงนี้)')
+            ? ` · ส่วนหัวระบุ last_updated ${result.lastUpdated.slice(0, 10)}`
+            : '')
         : null;
 
     const series: BotSeries = {

@@ -85,6 +85,13 @@ export interface BotSeriesDescriptor {
 /** ผลลัพธ์ดิบที่ client ส่งกลับ ก่อนถูกห่อด้วยข้อมูล provenance */
 export interface BotFetchResult {
   observations: BotObservation[];
+  /**
+   * จำนวนแถวที่ ธปท. ส่งมาก่อนแปลงเป็นจุดข้อมูล
+   *
+   * ศูนย์จุดข้อมูลจากศูนย์แถว = ธปท. ไม่มีอะไรจะส่งในช่วงนี้
+   * ศูนย์จุดข้อมูลจากหลายสิบแถว = ส่งโครงรายงานมาแต่ไม่มีตัวเลข ซึ่งคนละเรื่องกัน
+   */
+  rowCount: number;
   /** เวลาที่ BOT ระบุว่าอัปเดตข้อมูลล่าสุด (ถ้ามี) */
   lastUpdated: string | null;
   unit: BotUnit;

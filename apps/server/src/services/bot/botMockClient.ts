@@ -170,7 +170,7 @@ export class MockBotClient implements BotApiClient {
         ? new Date(`${observations[observations.length - 1]!.period}T07:00:00.000Z`).toISOString()
         : null;
 
-    return { observations, lastUpdated, unit: descriptor.unit };
+    return { observations, lastUpdated, rowCount: observations.length, unit: descriptor.unit };
   }
 
   private buildObservations(
