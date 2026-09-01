@@ -58,6 +58,7 @@ smeRouter.get('/', (req, res) => {
   const q = queryString(req, 'q');
   const industry = queryString(req, 'industry');
   const province = queryString(req, 'province');
+  const sort = queryString(req, 'sort');
   const limit = queryNumber(req, 'limit');
   const offset = queryNumber(req, 'offset');
 
@@ -65,6 +66,7 @@ smeRouter.get('/', (req, res) => {
     ...(q ? { q } : {}),
     ...(industry ? { industry } : {}),
     ...(province ? { province } : {}),
+    ...(sort ? { sort } : {}),
     ...(limit !== undefined ? { limit } : {}),
     ...(offset !== undefined ? { offset } : {}),
   });

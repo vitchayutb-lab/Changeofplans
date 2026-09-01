@@ -112,3 +112,79 @@ describe('GET /api/smes', () => {
     expect(detail.body.sme.id).toBe(id);
   });
 });
+
+describe('การเรียงลำดับผลค้นหา', () => {
+  it('ค่าเริ่มต้นเรียงตามชื่อ', () => {
+    const result = searchSmes({ limit: 30 });
+    expect(result.sort).toBe('name');
+    // SQLite เรียงด้วย BINARY collation (ลำดับไบต์) ไม่ใช่ลำดับพจนานุกรมไทย
+    // จึงเทียบกับการเรียงตามรหัสอักขระ ไม่ใช่ localeCompare('th') ซึ่งให้คนละลำดับ
+    const names = result.smes.map((s) => s.nameTh);
+    expect(names).toEqual([...names].sort());
+  });
+
+  it('เรียงตามรายได้จากมากไปน้อยได้', () => {
+    const { smes } = searchSmes({ sort: 'revenue_desc', limit: 40 });
+    const revenues = smes.map((s) => s.latestRevenue).filter((v): v is number => v !== null);
+    expect(revenues.length).toBeGreaterThan(1);
+    for (let i = 1; i < revenues.length; i += 1) {
+      expect(revenues[i]!).toBeLessThanOrEqual(revenues[i - 1]!);
+    }
+  });
+
+  it('กิจการที่ยังไม่มีงบอยู่ท้ายเสมอ ไม่ใช่หัวตารางรายได้สูงสุด', () => {
+    // "ไม่มีข้อมูล" ไม่เท่ากับ "รายได้ศูนย์" — ถ้าปล่อยให้ NULL ขึ้นก่อน
+    // รายการรายได้สูงสุดจะเริ่มด้วยกิจการที่ไม่มีตัวเลขเลย ซึ่งเป็นคำตอบที่ผิด
+    for (const sort of ['revenue_desc', 'revenue_asc'] as const) {
+      const { smes } = searchSmes({ sort, limit: 100 });
+      const firstNull = smes.findIndex((s) => s.latestRevenue === null);
+      if (firstNull !== -1) {
+        expect(smes.slice(firstNull).every((s) => s.latestRevenue === null)).toBe(true);
+      }
+    }
+  });
+
+  it('เรียงตามจำนวนพนักงานและปีก่อตั้งได้', () => {
+    const staff = searchSmes({ sort: 'employees_desc', limit: 20 }).smes.map((s) => s.employees);
+    expect(staff).toEqual([...staff].sort((a, b) => b - a));
+
+    const founded = searchSmes({ sort: 'founded_asc', limit: 20 }).smes.map((s) => s.foundedYear);
+    expect(founded).toEqual([...founded].sort((a, b) => a - b));
+  });
+
+  it('ค่าเรียงลำดับที่ไม่รู้จักถอยไปใช้ชื่อ ไม่ใช่ปฏิเสธคำขอ', () => {
+    expect(searchSmes({ sort: 'ไม่มีอันนี้', limit: 5 }).sort).toBe('name');
+  });
+
+  it('ค่าที่ส่งมาไม่กลายเป็น SQL — กันช่องโหว่ injection', () => {
+    // ค่านี้ไปอยู่ใน ORDER BY ถ้าเผลอต่อข้อความตรง ๆ ตารางจะหายไปทั้งตาราง
+    const before = countSmes();
+    const attack = "name; DROP TABLE smes; --";
+    expect(searchSmes({ sort: attack, limit: 5 }).sort).toBe('name');
+    expect(countSmes()).toBe(before);
+  });
+
+  it('เรียงลำดับแล้วยังแบ่งหน้าได้ครบ ไม่ซ้ำและไม่ข้าม', () => {
+    const size = 15;
+    const first = searchSmes({ sort: 'revenue_desc', limit: size, offset: 0 });
+    const second = searchSmes({ sort: 'revenue_desc', limit: size, offset: size });
+    const ids = new Set([...first.smes, ...second.smes].map((s) => s.id));
+    expect(ids.size).toBe(size * 2);
+  });
+
+  it('เดินทีละหน้าจนครบทุกกิจการที่ตรงเงื่อนไข', () => {
+    // ผู้ใช้ต้องเลื่อนไปให้ถึงรายการสุดท้ายได้จริง ไม่ใช่แค่ 20 รายการแรก
+    const seen = new Set<string>();
+    let offset = 0;
+    let total = 0;
+    for (let page = 0; page < 20; page += 1) {
+      const result = searchSmes({ industry: 'food', limit: 100, offset });
+      total = result.total;
+      for (const sme of result.smes) seen.add(sme.id);
+      offset += result.smes.length;
+      if (result.smes.length === 0 || seen.size >= total) break;
+    }
+    expect(seen.size).toBe(total);
+    expect(total).toBeGreaterThan(20);
+  });
+});
