@@ -638,3 +638,51 @@ describe('โครงรายงานที่ ธปท. ส่งมาเ�
     ]);
   });
 });
+
+describe('bibor — รูปแบบจริงจาก /BIBOR/v2/bibor_rate/', () => {
+  // หนึ่งแถวต่อ (วัน, ธนาคาร) แล้วกางช่วงอายุออกเป็นคอลัมน์ เหมือน LoanRate/DepositRate
+  const ROW = {
+    period: '2026-08-03',
+    bankname_th: 'ธนาคารกรุงเทพ จำกัด (มหาชน)',
+    bankname_eng: 'Bangkok Bank',
+    bibor_o_n: '1.01000',
+    bibor_1_week: '1.02000',
+    bibor_1_month: '1.05000',
+    bibor_2_month: '1.10000',
+    bibor_3_month: '1.15000',
+    bibor_6_month: '1.22000',
+    bibor_9_month: '',
+    bibor_1_year: '1.35000',
+  };
+
+  it('อ่านครบทุกช่วงอายุที่ธนาคารเสนอ', () => {
+    const { observations } = normalizeSeries(BOT_SERIES.bibor, envelope([ROW]));
+    expect(observations).toEqual([
+      { period: '2026-08-03', dimension: '1M', value: 1.05 },
+      { period: '2026-08-03', dimension: '1W', value: 1.02 },
+      { period: '2026-08-03', dimension: '1Y', value: 1.35 },
+      { period: '2026-08-03', dimension: '2M', value: 1.1 },
+      { period: '2026-08-03', dimension: '3M', value: 1.15 },
+      { period: '2026-08-03', dimension: '6M', value: 1.22 },
+      { period: '2026-08-03', dimension: 'O/N', value: 1.01 },
+    ]);
+  });
+
+  it('ช่วงอายุที่ธนาคารไม่ได้เสนอไม่กลายเป็นศูนย์', () => {
+    // bibor_9_month ว่างในแถวจริง ถ้านับเป็น 0 กราฟจะดิ่งลงทั้งที่ไม่มีใครเสนอราคา
+    const { observations } = normalizeSeries(BOT_SERIES.bibor, envelope([ROW]));
+    expect(observations.some((o) => o.dimension === '9M')).toBe(false);
+  });
+
+  it('เฉลี่ยข้ามธนาคารในวันเดียวกัน', () => {
+    // ธปท. ส่งราคาที่แต่ละธนาคารเสนอมาทีละราย ค่าที่แสดงคือค่าเฉลี่ยของวันนั้น
+    const { observations } = normalizeSeries(
+      BOT_SERIES.bibor,
+      envelope([
+        { period: '2026-08-03', bankname_eng: 'A', bibor_o_n: '1.00000' },
+        { period: '2026-08-03', bankname_eng: 'B', bibor_o_n: '1.20000' },
+      ]),
+    );
+    expect(observations).toEqual([{ period: '2026-08-03', dimension: 'O/N', value: 1.1 }]);
+  });
+});

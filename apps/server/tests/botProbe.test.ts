@@ -106,7 +106,7 @@ describe('probeSeries', () => {
 
   it('บอกว่ามิติไหนได้ค่าจริง เทียบกับที่ทะเบียนประกาศไว้', async () => {
     const probe = await live(() => OK).probeSeries('bibor');
-    expect(probe.declaredDimensions).toEqual(['1m', '3m', '6m']);
+    expect(probe.declaredDimensions).toEqual(BOT_SERIES.bibor.dimensions);
     expect(probe.dimensionsWithData).toEqual(['1m']);
   });
 

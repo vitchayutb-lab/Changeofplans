@@ -235,34 +235,36 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     id: 'bibor',
     title: 'Bangkok Interbank Offered Rate (BIBOR)',
     titleTh: 'อัตราดอกเบี้ยอ้างอิงระยะสั้นตลาดกรุงเทพ (BIBOR)',
-    //
     // ชื่อ resource คือ bibor_rate ไม่ใช่ bibor (ยืนยันจากพอร์ทัล ธปท.)
-    //
-    // ค่าเดิม /BIBOR/v2/bibor/ ได้ 404 จาก backend ไม่ใช่จาก gateway แปลว่า product
-    // ถูกแล้ว ผิดแค่ชื่อ resource ท้าย path
-    //
-    // product นี้มีอีกหนึ่ง resource คือ /BIBOR/v2/bibor_avg_rate/ ซึ่งเป็นค่าเฉลี่ย
-    // ชุดนี้ต้องการอัตรารายวัน จึงใช้ bibor_rate
+    // product เดียวกันมี /BIBOR/v2/bibor_avg_rate/ ซึ่งเป็นค่าเฉลี่ย ชุดนี้ใช้อัตรารายวัน
     path: '/BIBOR/v2/bibor_rate/',
     unit: 'percent_per_annum',
     ttlSeconds: 30 * MINUTE,
     supportsDateRange: true,
-    // ยังไม่เคยได้ผลลัพธ์จริง ตั้งเท่าที่ยืนยันแล้วว่า endpoint อื่นรับได้
     maxRangeDays: 31,
     supportsCurrency: false,
-    dimensions: ['1m', '3m', '6m'],
+    dimensions: ['O/N', '1W', '1M', '2M', '3M', '6M', '9M', '1Y'],
     periodFields: ['period', 'date'],
-    // ยังไม่เคยเห็นผลลัพธ์จริงของ endpoint นี้ ชื่อคอลัมน์จึงยังเป็นการคาด
-    // endpoint พี่น้องในกลุ่มเดียวกันใช้รูปแบบ "หนึ่งแถวต่อประเภท" คือมีคอลัมน์ชื่อประเภท
-    // คู่กับคอลัมน์ค่าเดียว (rate_type_name_eng + interest_rate) ถ้า BIBOR เป็นแบบนั้น
-    // คอลัมน์ที่ตั้งไว้นี้จะไม่ตรง และข้อความผิดพลาดจะบอกชื่อคอลัมน์จริงมาให้แก้ในรอบเดียว
+    // ตรวจกับผลลัพธ์จริงแล้ว: รูปแบบเดียวกับ LoanRate/DepositRate คือหนึ่งแถวต่อ
+    // (วัน, ธนาคาร) แล้วกางช่วงอายุออกเป็นคอลัมน์ ไม่ใช่หนึ่งแถวต่อช่วงอายุ
     valueFields: {
-      '1m': ['bibor_1m', 'rate_1m', '1m'],
-      '3m': ['bibor_3m', 'rate_3m', '3m'],
-      '6m': ['bibor_6m', 'rate_6m', '6m'],
+      'O/N': ['bibor_o_n'],
+      '1W': ['bibor_1_week'],
+      '1M': ['bibor_1_month'],
+      '2M': ['bibor_2_month'],
+      '3M': ['bibor_3_month'],
+      '6M': ['bibor_6_month'],
+      '9M': ['bibor_9_month'],
+      '1Y': ['bibor_1_year'],
     },
+    // ธนาคารที่ไม่ได้เสนออัตราของช่วงอายุนั้นส่งช่องว่างมา (เห็นแล้วที่ bibor_9_month)
+    // เผื่อบางรายส่ง 0 มาแทนเหมือนที่เจอใน LoanRate
+    treatZeroAsMissing: true,
     nestedArrayKeys: [],
-    description: 'อัตราอ้างอิงระยะสั้นที่ธนาคารเสนอกู้ยืมกันเอง ใช้อ้างอิงสินเชื่อลอยตัวบางประเภท',
+    description:
+      'อัตราที่ธนาคารสมาชิกเสนอกู้ยืมระหว่างกัน แยกตามช่วงอายุตั้งแต่ข้ามคืนถึงหนึ่งปี ' +
+      'ค่าที่แสดงเป็นค่าเฉลี่ยของอัตราที่ธนาคารทุกรายเสนอในวันนั้น ' +
+      'ซึ่งใกล้เคียงแต่ไม่เท่ากับ BIBOR fixing ที่ ธปท. ประกาศ (fixing ตัดค่าสูงสุด-ต่ำสุดออกก่อนเฉลี่ย)',
   },
 
   thb_implied_rate: {
