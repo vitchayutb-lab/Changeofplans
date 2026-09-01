@@ -359,7 +359,12 @@ export class BotService {
     const emptyNotice =
       result.observations.length === 0 && source === 'bot'
         ? `ดึงข้อมูลจาก ธปท. สำเร็จ แต่ไม่มีข้อมูลของ "${descriptor.titleTh}" ในช่วง ` +
-          `${params.start ?? '-'} ถึง ${params.end ?? '-'} (อาจไม่มีวันทำการในช่วงนี้)`
+          `${params.start ?? '-'} ถึง ${params.end ?? '-'} ` +
+          // ธปท. บอกวันที่อัปเดตล่าสุดของรายงานมาในส่วนหัว ถ้ามันอยู่ก่อนช่วงที่ขอ
+          // นั่นคือคำตอบว่าทำไมถึงว่าง และดีกว่าปล่อยให้เดาว่าเป็นวันหยุด
+          (result.lastUpdated
+            ? `(ธปท. อัปเดตรายงานนี้ล่าสุด ${result.lastUpdated.slice(0, 10)})`
+            : '(อาจไม่มีวันทำการในช่วงนี้)')
         : null;
 
     const series: BotSeries = {
