@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import type { JsonSchemaProperty, ToolDescriptor } from '@sme/shared';
+import type { BotSeriesProbe, JsonSchemaProperty, ToolDescriptor } from '@sme/shared';
 import { api } from '../api/client';
 import { useApi } from '../api/hooks';
 import { useApp } from '../context';
@@ -31,6 +31,8 @@ export function DeveloperPage() {
   const [args, setArgs] = useState<Record<string, string>>({});
   const [output, setOutput] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [probes, setProbes] = useState<BotSeriesProbe[] | null>(null);
+  const [probing, setProbing] = useState(false);
 
   const tool = tools.data?.tools.find((t) => t.name === selected) ?? null;
 
@@ -57,6 +59,17 @@ export function DeveloperPage() {
       );
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function probe(): Promise<void> {
+    setProbing(true);
+    try {
+      setProbes((await api.bot.probe()).probes);
+    } finally {
+      // สถานะรายชุดเปลี่ยนไปแล้วจากการทดสอบ ตารางด้านบนจึงต้องโหลดใหม่ด้วย
+      setProbing(false);
+      health.reload();
     }
   }
 
@@ -130,6 +143,89 @@ export function DeveloperPage() {
             </div>
           )}
         </AsyncBoundary>
+      </Section>
+
+      <Section
+        title="ชุดข้อมูล ธปท. รายชุด"
+        hint="ชุดที่ยังไม่เคยเรียกไม่ใช่ชุดที่ใช้ได้ — แค่ยังไม่มีใครลอง"
+        actions={
+          <button className="btn btn--sm btn--primary" onClick={() => void probe()} disabled={probing}>
+            {probing ? 'กำลังทดสอบ…' : 'ทดสอบกับ ธปท. จริง'}
+          </button>
+        }
+      >
+        <Card>
+          <p className="tiny muted" style={{ marginTop: 0 }}>
+            การทดสอบเรียก ธปท. จริงหนึ่งครั้งต่อชุด ไม่ผ่านแคช และไม่ถอยไปข้อมูลจำลองเมื่อพัง
+            เส้นทางปกติถอยให้เสมอเพื่อให้หน้าเว็บมีตัวเลขแสดง ซึ่งทำให้ชุดที่ตั้งค่าผิดดูเหมือนใช้ได้ตลอด
+          </p>
+
+          <AsyncBoundary state={health}>
+            {(data) => (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ชุดข้อมูล</th>
+                      <th>สถานะ</th>
+                      <th className="num">จุดข้อมูล</th>
+                      <th>มิติที่ได้ค่าจริง</th>
+                      <th>รายละเอียด</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.bot.series ?? []).map((entry) => {
+                      const result = probes?.find((p) => p.seriesId === entry.seriesId);
+                      const never = !entry.ok && entry.lastErrorAt === null;
+                      return (
+                        <tr key={entry.seriesId}>
+                          <td>
+                            {entry.titleTh}
+                            <div className="mono tiny muted">{entry.seriesId}</div>
+                          </td>
+                          <td>
+                            {result ? (
+                              <span className={`pill pill--${result.ok ? 'good' : 'risk'}`}>
+                                {result.ok ? 'เรียกได้จริง' : 'เรียกไม่ได้'}
+                              </span>
+                            ) : never ? (
+                              <span className="pill pill--na">ยังไม่เคยเรียก</span>
+                            ) : (
+                              <span className={`pill pill--${entry.ok ? 'good' : 'risk'}`}>
+                                {entry.ok ? 'เคยสำเร็จ' : 'เคยพลาด'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="num">{result ? result.observations : '—'}</td>
+                          <td className="tiny">
+                            {/*
+                              "ไม่มีมิติใดได้ค่า" ใช้ได้เฉพาะตอนเรียกติด — เรียกไม่ติดแล้วเขียนแบบนี้
+                              จะกลบความต่างระหว่างสองอาการ ซึ่งเป็นเหตุผลเดียวที่ตารางนี้มีอยู่
+                            */}
+                            {!result
+                              ? '—'
+                              : !result.ok
+                                ? '—'
+                                : result.dimensionsWithData.join(', ') || 'ไม่มีมิติใดได้ค่า'}
+                            {result && result.ok && result.dimensionsWithData.length === 0 && (
+                              <div className="tiny muted">
+                                เรียกติดแต่ไม่มีคอลัมน์ไหนตรง — ชื่อคอลัมน์ใน valueFields ไม่ตรงกับ
+                                ผลลัพธ์จริง ต้องแก้ที่ botSeries.ts ไม่ใช่ที่การเชื่อมต่อ
+                              </div>
+                            )}
+                          </td>
+                          <td className="tiny muted probe__detail">
+                            {result?.error ?? entry.lastError ?? (result ? `${result.elapsedMs} ms` : '—')}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </AsyncBoundary>
+        </Card>
       </Section>
 
       <Section title="ทะเบียนเครื่องมือ">

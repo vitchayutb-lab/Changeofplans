@@ -213,6 +213,9 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     unit: 'percent_per_annum',
     ttlSeconds: 30 * MINUTE,
     supportsDateRange: true,
+    // ทุก endpoint ที่ยืนยันแล้วตอบ 400 เมื่อขอ 90 วัน และหน้าข้อมูลตลาดตั้งต้นที่ 90 วัน
+    // ชุดนี้ยังไม่เคยยืนยันกับ ธปท. จริง จึงตั้งเท่าที่รู้ว่ารับได้ ไม่ปล่อยให้พังตั้งแต่คลิกแรก
+    maxRangeDays: 31,
     supportsCurrency: false,
     dimensions: ['overnight'],
     periodFields: ['period', 'date'],
@@ -231,6 +234,9 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     unit: 'percent_per_annum',
     ttlSeconds: 30 * MINUTE,
     supportsDateRange: true,
+    // ทุก endpoint ที่ยืนยันแล้วตอบ 400 เมื่อขอ 90 วัน และหน้าข้อมูลตลาดตั้งต้นที่ 90 วัน
+    // ชุดนี้ยังไม่เคยยืนยันกับ ธปท. จริง จึงตั้งเท่าที่รู้ว่ารับได้ ไม่ปล่อยให้พังตั้งแต่คลิกแรก
+    maxRangeDays: 31,
     supportsCurrency: false,
     dimensions: ['1m', '3m', '6m'],
     periodFields: ['period', 'date'],
@@ -251,6 +257,9 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     unit: 'percent_per_annum',
     ttlSeconds: 6 * HOUR,
     supportsDateRange: true,
+    // ทุก endpoint ที่ยืนยันแล้วตอบ 400 เมื่อขอ 90 วัน และหน้าข้อมูลตลาดตั้งต้นที่ 90 วัน
+    // ชุดนี้ยังไม่เคยยืนยันกับ ธปท. จริง จึงตั้งเท่าที่รู้ว่ารับได้ ไม่ปล่อยให้พังตั้งแต่คลิกแรก
+    maxRangeDays: 31,
     supportsCurrency: false,
     dimensions: ['1m', '3m', '6m'],
     periodFields: ['period', 'date'],
@@ -271,6 +280,9 @@ export const BOT_SERIES: Record<BotSeriesId, BotSeriesDescriptor> = {
     unit: 'percent_per_annum',
     ttlSeconds: 6 * HOUR,
     supportsDateRange: true,
+    // ทุก endpoint ที่ยืนยันแล้วตอบ 400 เมื่อขอ 90 วัน และหน้าข้อมูลตลาดตั้งต้นที่ 90 วัน
+    // ชุดนี้ยังไม่เคยยืนยันกับ ธปท. จริง จึงตั้งเท่าที่รู้ว่ารับได้ ไม่ปล่อยให้พังตั้งแต่คลิกแรก
+    maxRangeDays: 31,
     supportsCurrency: false,
     dimensions: ['fed_funds', 'sofr', 'ecb'],
     periodFields: ['period', 'date'],

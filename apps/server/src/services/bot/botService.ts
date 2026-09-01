@@ -10,6 +10,7 @@ import type {
   BotSeries,
   BotSeriesHealth,
   BotSeriesId,
+  BotSeriesProbe,
   BotSummary,
   BotUnit,
   DataSource,
@@ -178,6 +179,14 @@ export class BotService {
         ? { currency: params.currency.toUpperCase() }
         : {}),
     };
+    // ธปท. ตอบ 400 เมื่อช่วงยาวเกินที่ endpoint รับได้ ระบบจึงตัดให้สั้นลงเอง
+    // แต่การตัดเงียบ ๆ ทำให้คนกด "1 ปี" แล้วได้กราฟเดือนเดียวโดยไม่รู้ว่าทำไม
+    const clampNotice =
+      resolved.start !== requested.start
+        ? `ธปท. รับช่วงข้อมูลของชุดนี้ได้ครั้งละไม่เกิน ${descriptor.maxRangeDays} วัน ` +
+          `จึงแสดงตั้งแต่ ${resolved.start} ถึง ${resolved.end} แทนช่วงที่เลือกไว้`
+        : null;
+
     const cacheKey = buildCacheKey(seriesId, resolved);
     const now = new Date();
 
@@ -208,7 +217,14 @@ export class BotService {
     // 3) เรียก BOT API จริง
     if (this.canUseLive()) {
       try {
-        const series = await this.fetchAndStore(this.live, descriptor, resolved, 'bot', cacheKey);
+        const series = await this.fetchAndStore(
+          this.live,
+          descriptor,
+          resolved,
+          'bot',
+          cacheKey,
+          clampNotice,
+        );
         this.record(descriptor.id, null);
         return series;
       } catch (error) {
@@ -249,6 +265,84 @@ export class BotService {
     );
   }
 
+  /**
+   * ทดสอบเรียกชุดข้อมูลจริงหนึ่งชุด โดยไม่ผ่านแคชและไม่ถอยไปข้อมูลจำลอง
+   *
+   * getSeries ถูกออกแบบให้ผู้ใช้ได้ตัวเลขเสมอ พังแล้วก็ยังคืนข้อมูลจำลองให้ ซึ่งถูก
+   * สำหรับหน้าเว็บ แต่ใช้ตรวจว่าทะเบียนชุดข้อมูลตรงกับ ธปท. จริงไหมไม่ได้เลย เพราะ
+   * มันสำเร็จทุกครั้ง ตัวนี้จึงหยุดที่ผลลัพธ์จริงและรายงานตามที่เกิดขึ้น
+   */
+  async probeSeries(seriesId: BotSeriesId): Promise<BotSeriesProbe> {
+    const descriptor = getSeriesDescriptor(seriesId);
+    if (!descriptor) {
+      throw new BotApiError(`Unknown BOT series "${seriesId}"`, 'response');
+    }
+
+    const window = defaultWindow(Math.min(90, descriptor.maxRangeDays ?? 90));
+    const requested = clampRange(window, descriptor.maxRangeDays);
+    const base = {
+      seriesId: descriptor.id,
+      titleTh: descriptor.titleTh,
+      path: descriptor.path,
+      declaredDimensions: descriptor.dimensions,
+      requested,
+    };
+
+    if (!this.canUseLive()) {
+      // ยิงใส่ข้อมูลจำลองแล้วรายงานว่า "ผ่าน" คือคำตอบที่ไร้ประโยชน์ที่สุดของเครื่องมือนี้
+      return {
+        ...base,
+        ok: false,
+        error: `DEMO MODE: ${botConfigGap() ?? 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ BOT'} — ทดสอบกับ ธปท. จริงไม่ได้`,
+        observations: 0,
+        dimensionsWithData: [],
+        firstPeriod: null,
+        lastPeriod: null,
+        elapsedMs: 0,
+      };
+    }
+
+    const startedAt = Date.now();
+    try {
+      const result = await this.live.fetchSeries(descriptor, requested);
+      this.record(descriptor.id, null);
+
+      const periods = result.observations.map((o) => o.period).sort();
+      return {
+        ...base,
+        ok: true,
+        error: null,
+        observations: result.observations.length,
+        dimensionsWithData: [...new Set(result.observations.map((o) => o.dimension))].sort(),
+        firstPeriod: periods[0] ?? null,
+        lastPeriod: periods[periods.length - 1] ?? null,
+        elapsedMs: Date.now() - startedAt,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.record(descriptor.id, message);
+      return {
+        ...base,
+        ok: false,
+        error: message,
+        observations: 0,
+        dimensionsWithData: [],
+        firstPeriod: null,
+        lastPeriod: null,
+        elapsedMs: Date.now() - startedAt,
+      };
+    }
+  }
+
+  /** ทดสอบทุกชุดในทะเบียน — ทีละชุด ไม่ยิงพร้อมกัน เพื่อไม่ให้ ธปท. เห็นเป็นการถล่ม */
+  async probeAll(): Promise<BotSeriesProbe[]> {
+    const results: BotSeriesProbe[] = [];
+    for (const descriptor of listSeriesDescriptors()) {
+      results.push(await this.probeSeries(descriptor.id));
+    }
+    return results;
+  }
+
   private async fetchAndStore(
     client: BotApiClient,
     descriptor: BotSeriesDescriptor,
@@ -282,7 +376,7 @@ export class BotService {
         fetchedAt,
         stale: false,
         cache: { hit: false, ageSeconds: 0, ttlSeconds: descriptor.ttlSeconds },
-        notice: notice ?? emptyNotice,
+        notice: [notice, emptyNotice].filter(Boolean).join(' · ') || null,
       },
     };
 
