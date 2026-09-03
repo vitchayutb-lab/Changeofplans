@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { DerivedStatement, FinancialStatementInput } from '@sme/shared';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useApi } from '../api/hooks';
 import { useApp } from '../context';
@@ -136,7 +137,15 @@ export function FinancialsPage() {
                 </div>
               </Section>
 
-              <Section title="อัตราส่วนทางการเงิน" hint="เทียบกับเกณฑ์ที่ใช้กันทั่วไปสำหรับ SME">
+              <Section
+                title="อัตราส่วนทางการเงิน"
+                hint="เทียบกับเกณฑ์ที่ใช้กันทั่วไปสำหรับ SME"
+                actions={
+                  <Link className="btn btn--sm" to="/benchmarks">
+                    ดูสูตรและเกณฑ์
+                  </Link>
+                }
+              >
                 <div className="grid grid--3">
                   {data.groups.map((group) => (
                     <Card key={group.key} title={group.labelTh} hint={group.label}>
