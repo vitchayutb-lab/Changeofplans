@@ -7,6 +7,7 @@ import { useApi } from '../api/hooks';
 import { useApp } from '../context';
 import { AsyncBoundary, Card, Section, Verdict } from '../components/primitives';
 import { SourceBadge } from '../components/SourceBadge';
+import { DownsideCard } from '../components/DownsideCard';
 import { formatMoney, formatPercent, formatTimes } from '../components/format';
 import { LineChart } from '../charts/LineChart';
 
@@ -136,6 +137,16 @@ export function LoanSimulatorPage() {
                 </div>
                 <p className="tiny">{result.impact.verdictReasonTh}</p>
               </Card>
+            </div>
+          </Section>
+
+          <Section title="ความเสี่ยงขาลง" hint="สิ่งที่เกิดขึ้นถ้าจ่ายไม่ไหว">
+            <div className="grid grid--2">
+              <DownsideCard
+                downside={result.downside}
+                contractRatePct={result.rate.effectiveRatePct}
+                contractAnnualInterest={result.quote.firstYearInterest}
+              />
             </div>
           </Section>
 

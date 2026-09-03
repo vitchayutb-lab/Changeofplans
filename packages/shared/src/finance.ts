@@ -260,6 +260,33 @@ export interface LoanSimulation {
     verdict: RatioVerdict;
     verdictReasonTh: string;
   };
+  /**
+   * ต้นทุนถ้าผิดนัดชำระ
+   *
+   * ตัวเลขที่เหลือในหน้านี้ตอบว่า "ถ้าจ่ายไหว จะจ่ายเท่าไร" ซึ่งเป็นครึ่งเดียวของการตัดสินใจ
+   * อีกครึ่งคือถ้าจ่ายไม่ไหว ซึ่งไม่ใช่การจ่ายอัตราเดิมต่อไป แต่ขยับไปที่อัตราผิดนัด
+   * ที่ ธปท. เก็บไว้ในชุดเพดานดอกเบี้ย — สูงกว่าอัตราสินเชื่อปกติหลายเท่า
+   *
+   * null เมื่อดึงอัตราผิดนัดไม่ได้ ไม่ใช่เดาค่าแทน
+   */
+  downside: LoanDownside | null;
   disclaimerTh: string;
   disclaimerEn: string;
+}
+
+export interface LoanDownside {
+  defaultRatePct: number;
+  /**
+   * ดอกเบี้ยหนึ่งปีถ้าคิดอัตราผิดนัดกับยอดกู้เต็มจำนวน
+   *
+   * เป็นขอบบนของความเสียหาย ไม่ใช่ตัวเลขที่จะเกิดขึ้นแน่นอน — ในทางปฏิบัติอัตราผิดนัด
+   * คิดกับยอดที่ค้างชำระตามที่สัญญากำหนด ซึ่งต่างกันไปแต่ละแห่ง
+   */
+  annualInterestAtDefault: number;
+  /** ส่วนต่างจากดอกเบี้ยปีแรกตามสัญญา */
+  extraInterestPerYear: number;
+  /** เป็นกี่เท่าของดอกเบี้ยตามสัญญา (null เมื่อดอกเบี้ยตามสัญญาเป็นศูนย์) */
+  multipleOfContract: number | null;
+  provenance: Provenance | null;
+  noteTh: string;
 }

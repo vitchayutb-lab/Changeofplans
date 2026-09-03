@@ -1106,3 +1106,36 @@ td.probe__detail {
   overflow-wrap: anywhere;
   line-height: 1.5;
 }
+
+/* ── ต้นทุนถ้าผิดนัดชำระ ─────────────────────────────────────────────────── */
+
+.downside__rates {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.downside__from {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.downside__arrow {
+  font-size: 20px;
+  color: var(--text-faint);
+}
+
+/* ตัวเลขนี้คือประเด็นทั้งหมดของการ์ด จึงต้องเด่นกว่าอัตราตามสัญญาอย่างชัดเจน */
+.downside__to {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--risk);
+}
+
+.downside__caption {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
