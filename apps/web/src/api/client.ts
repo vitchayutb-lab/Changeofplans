@@ -15,6 +15,7 @@ import type {
   BotSeriesCatalogEntry,
   BotSeriesId,
   BotSeriesProbe,
+  RatioDefinitionGroup,
   BotSummary,
   DebtOverview,
   FinancialAnalysis,
@@ -114,6 +115,9 @@ export const api = {
     invalidate: (seriesId?: BotSeriesId) =>
       post<{ cleared: number }>('/bot/cache/invalidate', seriesId ? { seriesId } : {}),
   },
+
+  /** ทะเบียนอัตราส่วนพร้อมสูตรและเกณฑ์ — อ่านได้โดยไม่ต้องเลือกกิจการ */
+  ratios: () => request<{ groups: RatioDefinitionGroup[] }>('/ratios'),
 
   smes: {
     /** ค้นหากิจการ — ฐานข้อมูลมีหลักพันราย จึงกรองและแบ่งหน้าที่เซิร์ฟเวอร์ */

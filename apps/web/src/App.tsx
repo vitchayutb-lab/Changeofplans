@@ -9,6 +9,7 @@ const NAV = [
   { to: '/', label: 'ภาพรวม', icon: '📊', end: true },
   { to: '/market', label: 'ข้อมูลตลาด ธปท.', icon: '🏦' },
   { to: '/financials', label: 'งบการเงิน', icon: '📒' },
+  { to: '/benchmarks', label: 'เกณฑ์การวัดธุรกิจ', icon: '📐' },
   { to: '/loans', label: 'จำลองสินเชื่อ', icon: '🧮' },
   { to: '/startup', label: 'ธุรกิจเริ่มต้น', icon: '🚀' },
   { to: '/funding', label: 'แหล่งเงินทุน', icon: '🎯' },

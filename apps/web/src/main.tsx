@@ -6,6 +6,7 @@ import { AppProvider } from './context';
 import { DashboardPage } from './pages/DashboardPage';
 import { MarketDataPage } from './pages/MarketDataPage';
 import { FinancialsPage } from './pages/FinancialsPage';
+import { BenchmarksPage } from './pages/BenchmarksPage';
 import { LoanSimulatorPage } from './pages/LoanSimulatorPage';
 import { FundingPage } from './pages/FundingPage';
 import { StartupPage } from './pages/StartupPage';
@@ -25,6 +26,7 @@ const router = createBrowserRouter([
       { index: true, element: <DashboardPage /> },
       { path: 'market', element: <MarketDataPage /> },
       { path: 'financials', element: <FinancialsPage /> },
+      { path: 'benchmarks', element: <BenchmarksPage /> },
       { path: 'loans', element: <LoanSimulatorPage /> },
       { path: 'startup', element: <StartupPage /> },
       { path: 'funding', element: <FundingPage /> },

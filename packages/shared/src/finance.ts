@@ -159,6 +159,29 @@ export interface RatioGroup {
   ratios: Ratio[];
 }
 
+/**
+ * นิยามของอัตราส่วนหนึ่งตัว โดยไม่ผูกกับกิจการใด
+ *
+ * เหมือน Ratio แต่ไม่มีค่าและไม่มีผลตัดสิน — ใช้กับหน้าอธิบายเกณฑ์ ซึ่งต้องอ่านได้
+ * แม้ยังไม่ได้เลือกกิจการ และมาจากทะเบียนเดียวกับที่ระบบใช้คำนวณจริง
+ */
+export interface RatioDefinition {
+  key: string;
+  label: string;
+  labelTh: string;
+  unit: Ratio['unit'];
+  formula: string;
+  explanationTh: string;
+  benchmark: Ratio['benchmark'];
+}
+
+export interface RatioDefinitionGroup {
+  key: RatioGroup['key'];
+  label: string;
+  labelTh: string;
+  ratios: RatioDefinition[];
+}
+
 export interface FinancialAnalysis {
   smeId: string;
   fiscalYear: number;

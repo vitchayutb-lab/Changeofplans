@@ -63,6 +63,7 @@ no key is configured, `"degraded"` when a key exists but the last call failed.
 | GET | `/api/bot/market` | — | Interbank rate + BIBOR + reference FX in one call |
 | GET | `/api/bot/indicator/:indicator` | `start`,`end` | Any registered series id |
 | GET | `/api/bot/series` | — | Catalog of registered series with TTLs and units |
+| GET | `/api/ratios` | — | Every ratio the engine measures, with its formula, plain-language explanation and benchmark bands. Built from the same registry `calculateRatios` uses, so the reference page cannot state a threshold the engine does not apply. Needs no company — it is documentation, not analysis. |
 | POST | `/api/bot/cache/invalidate` | body `{ seriesId? }` | Developer tool; clears cache rows |
 | POST | `/api/bot/probe` | body `{ seriesId? }` | Developer tool; calls BOT for real, skipping the cache and the demo fallback, and reports per series whether it answered, how many points parsed, and which declared dimensions actually produced values. The normal routes always fall back to demo data, so a series whose path or column names are wrong looks healthy there. Rate-limited with the expensive routes. |
 

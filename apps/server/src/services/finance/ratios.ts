@@ -5,7 +5,13 @@
  * ระบบจึงแสดงทั้งค่าที่คำนวณได้ สูตร และเกณฑ์ ให้ผู้ใช้ตัดสินใจเองได้
  */
 
-import type { DerivedStatement, Ratio, RatioGroup, RatioVerdict } from '@sme/shared';
+import type {
+  DerivedStatement,
+  Ratio,
+  RatioDefinitionGroup,
+  RatioGroup,
+  RatioVerdict,
+} from '@sme/shared';
 
 interface RatioSpec {
   key: string;
@@ -250,24 +256,49 @@ function build(specs: RatioSpec[], s: DerivedStatement, ctx: RatioContext): Rati
   });
 }
 
+/**
+ * กลุ่มอัตราส่วนทั้งหมด — แหล่งเดียวของทั้งการคำนวณและหน้าอธิบายเกณฑ์
+ *
+ * ถ้าแยกรายการไว้สองที่ วันหนึ่งหน้าอธิบายจะบอกเกณฑ์คนละค่ากับที่ระบบใช้ตัดสินจริง
+ * ซึ่งแย่กว่าไม่มีหน้าอธิบายเลย
+ */
+const GROUPS: { key: RatioGroup['key']; label: string; labelTh: string; specs: RatioSpec[] }[] = [
+  { key: 'liquidity', label: 'Liquidity', labelTh: 'สภาพคล่อง', specs: LIQUIDITY },
+  { key: 'leverage', label: 'Leverage', labelTh: 'โครงสร้างหนี้', specs: LEVERAGE },
+  { key: 'profitability', label: 'Profitability', labelTh: 'ความสามารถทำกำไร', specs: PROFITABILITY },
+  { key: 'efficiency', label: 'Efficiency', labelTh: 'ประสิทธิภาพการใช้สินทรัพย์', specs: EFFICIENCY },
+  { key: 'coverage', label: 'Coverage', labelTh: 'ความสามารถชำระหนี้', specs: COVERAGE },
+];
+
 export function calculateRatios(s: DerivedStatement, ctx: RatioContext): RatioGroup[] {
-  return [
-    { key: 'liquidity', label: 'Liquidity', labelTh: 'สภาพคล่อง', ratios: build(LIQUIDITY, s, ctx) },
-    { key: 'leverage', label: 'Leverage', labelTh: 'โครงสร้างหนี้', ratios: build(LEVERAGE, s, ctx) },
-    {
-      key: 'profitability',
-      label: 'Profitability',
-      labelTh: 'ความสามารถทำกำไร',
-      ratios: build(PROFITABILITY, s, ctx),
-    },
-    {
-      key: 'efficiency',
-      label: 'Efficiency',
-      labelTh: 'ประสิทธิภาพการใช้สินทรัพย์',
-      ratios: build(EFFICIENCY, s, ctx),
-    },
-    { key: 'coverage', label: 'Coverage', labelTh: 'ความสามารถชำระหนี้', ratios: build(COVERAGE, s, ctx) },
-  ];
+  return GROUPS.map((group) => ({
+    key: group.key,
+    label: group.label,
+    labelTh: group.labelTh,
+    ratios: build(group.specs, s, ctx),
+  }));
+}
+
+/**
+ * รายการอัตราส่วนพร้อมสูตรและเกณฑ์ โดยไม่ต้องมีงบการเงิน
+ *
+ * ใช้กับหน้าอธิบายเกณฑ์ ซึ่งต้องอ่านได้แม้ยังไม่ได้เลือกกิจการ
+ */
+export function ratioCatalog(): RatioDefinitionGroup[] {
+  return GROUPS.map((group) => ({
+    key: group.key,
+    label: group.label,
+    labelTh: group.labelTh,
+    ratios: group.specs.map((spec) => ({
+      key: spec.key,
+      label: spec.label,
+      labelTh: spec.labelTh,
+      unit: spec.unit,
+      formula: spec.formula,
+      explanationTh: spec.explanationTh,
+      benchmark: spec.benchmark,
+    })),
+  }));
 }
 
 /** ค้นหาอัตราส่วนตามคีย์จากผลลัพธ์ที่จัดกลุ่มแล้ว */

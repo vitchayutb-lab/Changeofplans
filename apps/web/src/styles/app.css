@@ -1159,3 +1159,40 @@ td.probe__detail {
   /* หัวตารางต้องทึบ ไม่งั้นแถวที่เลื่อนผ่านจะทะลุขึ้นมาให้เห็น */
   background: var(--surface);
 }
+
+/* ── หน้าเกณฑ์การวัดธุรกิจ ────────────────────────────────────────────────── */
+
+/*
+ * ตารางทั่วไปตั้ง white-space: nowrap เพื่อไม่ให้ตัวเลขตกบรรทัด แต่หน้านี้เป็นเอกสาร
+ * ทุกช่องมีข้อความยาว ถ้าไม่ให้ตัดบรรทัดก็ต้องเลื่อนแนวนอนตลอดเวลาเพื่ออ่านคำอธิบาย
+ */
+.benchmark__name,
+.benchmark__formula,
+.benchmark__band {
+  white-space: normal;
+  vertical-align: top;
+}
+
+.benchmark__name {
+  min-width: 220px;
+  max-width: 300px;
+}
+
+.benchmark__why {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.benchmark__formula {
+  min-width: 240px;
+  max-width: 340px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.benchmark__band {
+  min-width: 130px;
+}
