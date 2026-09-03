@@ -494,6 +494,22 @@ export class BotService {
     return { name, value: metric.current, provenance: metric.provenance };
   }
 
+  /**
+   * อัตราดอกเบี้ยผิดนัดชำระที่ธนาคารพาณิชย์ประกาศ
+   *
+   * ตัวเลขนี้คือขาลงของการกู้ ถ้าจ่ายไม่ไหวต้นทุนไม่ได้อยู่ที่อัตราเดิม แต่ขยับมาที่นี่
+   */
+  async getDefaultRate(): Promise<{ value: number | null; provenance: Provenance }> {
+    const metric = await this.getMetric({
+      seriesId: 'loan_ceiling_rate',
+      dimension: 'penalty',
+      key: 'default_rate',
+      label: 'Default rate',
+      labelTh: 'อัตราผิดนัดชำระ',
+    });
+    return { value: metric.current, provenance: metric.provenance };
+  }
+
   /** อัตราแลกเปลี่ยนล่าสุดของสกุลเงินหนึ่ง (บาทต่อ 1 หน่วย) */
   async getExchangeRate(currency: string): Promise<BotMetric> {
     const code = currency.toUpperCase();

@@ -10,6 +10,7 @@ import type { FactorStatus, StartupAssessment, StartupProfile } from '@sme/share
 import { api, ApiError } from '../api/client';
 import { Card, Section } from '../components/primitives';
 import { SourceBadge } from '../components/SourceBadge';
+import { DownsideCard } from '../components/DownsideCard';
 import { ProviderLink } from '../components/ReferenceLinks';
 import { formatMoney, formatPercent, formatTimes } from '../components/format';
 
@@ -307,6 +308,16 @@ function AssessmentResult({ result }: { result: StartupAssessment }) {
             <div className="metric__value">{formatMoney(result.affordableAmount)}</div>
             <div className="metric__prev">ที่ DSCR 1.20 เท่า ผ่อน {result.profile.requestedYears} ปี</div>
           </Card>
+        </div>
+      </Section>
+
+      <Section title="ความเสี่ยงขาลง" hint="ตัวเลขด้านบนคิดบนสมมติฐานว่าทุกอย่างเป็นไปตามแผน">
+        <div className="grid grid--2">
+          <DownsideCard
+            downside={result.downside}
+            contractRatePct={result.metrics.estimatedRatePct}
+            contractAnnualInterest={result.metrics.firstYearInterest}
+          />
         </div>
       </Section>
 

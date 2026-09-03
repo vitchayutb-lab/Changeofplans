@@ -10,6 +10,7 @@ import { getDebtOverview, loadReferenceRates } from './debt.js';
 import { loadStatements } from './analysis.js';
 import { annualDebtService, dscr, quote } from './loan.js';
 import { derive } from './statement.js';
+import { loanDownside } from './downside.js';
 
 const DISCLAIMER_TH =
   'ตัวเลขทั้งหมดเป็นค่าประมาณจากอัตราดอกเบี้ยประกาศของ ธปท. และงบการเงินที่บันทึกไว้ ' +
@@ -84,6 +85,7 @@ export async function simulateLoan(input: SimulationInput): Promise<LoanSimulati
     statement.ebit > 0 ? round4(loanQuote.firstYearInterest / statement.ebit) : null;
 
   const { verdict, reasonTh } = judge(dscrAfter, coverageAfter, deAfter);
+  const downside = await loanDownside(input.amount, loanQuote.firstYearInterest);
 
   return {
     smeId: input.smeId,
@@ -107,6 +109,7 @@ export async function simulateLoan(input: SimulationInput): Promise<LoanSimulati
       verdict,
       verdictReasonTh: reasonTh,
     },
+    downside,
     disclaimerTh: DISCLAIMER_TH,
     disclaimerEn: DISCLAIMER_EN,
   };

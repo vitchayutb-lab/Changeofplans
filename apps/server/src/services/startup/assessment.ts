@@ -16,6 +16,7 @@ import type {
 import { listPrograms } from '../../db/fundingRepo.js';
 import { loadReferenceRates } from '../finance/debt.js';
 import { annualInterest, payment } from '../finance/loan.js';
+import { loanDownside } from '../finance/downside.js';
 import {
   affordablePrincipal,
   buildActions,
@@ -282,6 +283,7 @@ export async function assessStartup(profile: StartupProfile): Promise<StartupAss
   );
 
   const eligibleCount = recommendations.filter((item) => item.eligible).length;
+  const downside = await loanDownside(profile.requestedAmount, metrics.firstYearInterest);
 
   return {
     profile,
@@ -296,6 +298,7 @@ export async function assessStartup(profile: StartupProfile): Promise<StartupAss
     recommendations,
     actions: buildActions(profile, metrics, factors, affordableAmount),
     affordableAmount,
+    downside,
     provenance: reference.provenance,
     disclaimerTh: DISCLAIMER_TH,
   };

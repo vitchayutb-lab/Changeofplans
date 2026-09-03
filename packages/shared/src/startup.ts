@@ -7,7 +7,7 @@
 
 import type { Provenance } from './bot.js';
 import type { FundingProgram, FundingType } from './funding.js';
-import type { Industry } from './finance.js';
+import type { Industry, LoanDownside } from './finance.js';
 
 export type CreditHistory = 'clean' | 'none' | 'late' | 'default';
 
@@ -134,6 +134,13 @@ export interface StartupAssessment {
   actions: ImprovementAction[];
   /** วงเงินสูงสุดที่ตัวเลขปัจจุบันรองรับได้ที่ DSCR 1.2 เท่า */
   affordableAmount: number;
+  /**
+   * ต้นทุนถ้าผิดนัดชำระที่วงเงินที่ขอ
+   *
+   * หน้าประเมินตอบว่า "น่าจะกู้ผ่านไหม" และ "ผ่อนไหวไหม" ทั้งสองข้อคิดบนสมมติฐาน
+   * ว่าทุกอย่างเป็นไปตามแผน ตัวเลขนี้คือกรณีที่ไม่เป็นไปตามแผน
+   */
+  downside: LoanDownside | null;
   provenance: Provenance | null;
   disclaimerTh: string;
 }
