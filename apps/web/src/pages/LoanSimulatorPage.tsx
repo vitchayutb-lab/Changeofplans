@@ -197,7 +197,11 @@ export function LoanSimulatorPage() {
           </Section>
 
           <Section title="ตารางผ่อนชำระ">
-            <div className="grid grid--2">
+            {/*
+              เรียงลงมาแทนที่จะวางคู่กัน — ตารางมีห้าคอลัมน์ พอบีบเหลือครึ่งจอแล้ว
+              คอลัมน์ยอดคงเหลือถูกตัดออกนอกจอ ซึ่งเป็นคอลัมน์ที่คนเปิดตารางนี้มาดู
+            */}
+            <div className="stack">
               <Card title="ยอดหนี้คงเหลือ">
                 <LineChart
                   series={[
@@ -214,8 +218,11 @@ export function LoanSimulatorPage() {
                   yZero
                 />
               </Card>
-              <Card title="12 งวดแรก">
-                <div className="table-wrap">
+              <Card
+                title={`ทุกงวด (${result.quote.schedule.length} งวด)`}
+                hint="เลื่อนในตารางเพื่อดูจนถึงงวดสุดท้าย"
+              >
+                <div className="table-wrap table-wrap--tall">
                   <table>
                     <thead>
                       <tr>
@@ -227,7 +234,7 @@ export function LoanSimulatorPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {result.quote.schedule.slice(0, 12).map((row) => (
+                      {result.quote.schedule.map((row) => (
                         <tr key={row.month}>
                           <td>{row.month}</td>
                           <td className="num">{formatMoney(row.payment)}</td>
