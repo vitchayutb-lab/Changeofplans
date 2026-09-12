@@ -4,6 +4,7 @@ import { ToolRegistry } from '../registry.js';
 import { botTools } from './botTools.js';
 import { financeTools } from './financeTools.js';
 import { fundingTools } from './fundingTools.js';
+import { lendingTools } from './lendingTools.js';
 import { startupTools } from './startupTools.js';
 
 let registry: ToolRegistry | null = null;
@@ -14,10 +15,11 @@ export function getToolRegistry(): ToolRegistry {
       ...botTools,
       ...financeTools,
       ...fundingTools,
+      ...lendingTools,
       ...startupTools,
     );
   }
   return registry;
 }
 
-export { botTools, financeTools, fundingTools, startupTools };
+export { botTools, financeTools, fundingTools, lendingTools, startupTools };

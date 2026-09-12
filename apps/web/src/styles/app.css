@@ -1196,3 +1196,82 @@ td.probe__detail {
 .benchmark__band {
   min-width: 130px;
 }
+
+/* ── เงื่อนไขการกู้ ──────────────────────────────────────────────────────── */
+
+/*
+ * แถบความเปิดกว้างรายอุตสาหกรรม
+ *
+ * ตัวเลขอย่างเดียวเทียบเจ็ดแถวด้วยสายตาไม่ไหว ต้องกวาดตาอ่านทีละตัว แถบจึงอยู่คู่กับ
+ * ตัวเลขเสมอ ไม่ใช่แทนที่ — คนที่อ่านด้วยโปรแกรมอ่านหน้าจอยังได้ค่าจริงจาก aria-label
+ */
+.openness {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.openness__track {
+  flex: 1;
+  height: 8px;
+  min-width: 60px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+
+.openness__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+}
+
+.openness__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 13px;
+  min-width: 2ch;
+  text-align: right;
+}
+
+/*
+ * ตารางทั่วไปตั้ง white-space: nowrap เพื่อไม่ให้ตัวเลขตกบรรทัด แต่สามช่องนี้เก็บประโยค
+ * และรายชื่อโครงการยาว ๆ ถ้าไม่ให้ตัดบรรทัดจะถูกตัดหายไปนอกขอบการ์ด
+ */
+.lever__action,
+.openness-table__targeted {
+  white-space: normal;
+  font-size: 13px;
+  line-height: 1.6;
+  max-width: 460px;
+}
+
+.lever__programs,
+.condition__list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  white-space: normal;
+}
+
+.lever__programs li,
+.condition__list li {
+  margin-bottom: 2px;
+}
+
+/* แถวของประเภทธุรกิจที่เลือกอยู่ ต้องหาเจอทันทีในตารางเทียบเจ็ดแถว */
+tr.is-current > td {
+  background: var(--surface-alt);
+}
+
+tr.is-current .pill {
+  margin-left: 8px;
+}
+
+.formula {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  line-height: 1.7;
+}

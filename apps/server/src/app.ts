@@ -17,6 +17,7 @@ import { advisorRouter } from './routes/advisor.js';
 import { botRouter } from './routes/bot.js';
 import { fundingRouter } from './routes/funding.js';
 import { healthRouter } from './routes/health.js';
+import { lendingRouter } from './routes/lending.js';
 import { ratiosRouter } from './routes/ratios.js';
 import { smeRouter } from './routes/sme.js';
 import { startupRouter } from './routes/startup.js';
@@ -104,6 +105,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use('/api/smes', smeRouter);
   app.use('/api/ratios', ratiosRouter);
   app.use('/api/funding', fundingRouter);
+  app.use('/api/lending', lendingRouter);
   app.use('/api/startup', startupRouter);
   app.use('/api/advisor', advisorRouter);
   app.use('/api/tools', toolsRouter);

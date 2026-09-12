@@ -16,6 +16,9 @@ import type {
   BotSeriesId,
   BotSeriesProbe,
   RatioDefinitionGroup,
+  LendingConditionsReport,
+  LendingOverview,
+  LendingProfile,
   BotSummary,
   DebtOverview,
   FinancialAnalysis,
@@ -159,6 +162,15 @@ export const api = {
       status: string;
       note?: string;
     }) => post<{ application: FundingApplication }>('/funding/applications', payload),
+  },
+
+  /** เงื่อนไขการกู้ — ธุรกิจแบบไหนกู้ง่ายกว่า และโปรไฟล์นี้ติดอะไรอยู่ */
+  lending: {
+    /** นับจากทะเบียนโครงการล้วน ๆ จึงอ่านได้ก่อนกรอกอะไร */
+    overview: () => request<LendingOverview>('/lending/overview'),
+    example: () => request<{ profile: LendingProfile }>('/lending/example'),
+    check: (profile: LendingProfile) =>
+      post<LendingConditionsReport>('/lending/check', profile),
   },
 
   startup: {
