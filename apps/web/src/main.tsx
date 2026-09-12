@@ -9,6 +9,7 @@ import { FinancialsPage } from './pages/FinancialsPage';
 import { BenchmarksPage } from './pages/BenchmarksPage';
 import { LoanSimulatorPage } from './pages/LoanSimulatorPage';
 import { FundingPage } from './pages/FundingPage';
+import { LendingConditionsPage } from './pages/LendingConditionsPage';
 import { StartupPage } from './pages/StartupPage';
 import { AdvisorPage } from './pages/AdvisorPage';
 import { DeveloperPage } from './pages/DeveloperPage';
@@ -30,6 +31,7 @@ const router = createBrowserRouter([
       { path: 'loans', element: <LoanSimulatorPage /> },
       { path: 'startup', element: <StartupPage /> },
       { path: 'funding', element: <FundingPage /> },
+      { path: 'lending-conditions', element: <LendingConditionsPage /> },
       { path: 'advisor', element: <AdvisorPage /> },
       { path: 'developer', element: <DeveloperPage /> },
       // ที่อยู่ที่ไม่ตรงกับหน้าใด ยังคงเห็นเมนูด้านข้างและกลับไปหน้าอื่นได้

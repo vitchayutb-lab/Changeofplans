@@ -87,6 +87,20 @@ no key is configured, `"degraded"` when a key exists but the last call failed.
 | GET | `/api/funding/match/:smeId` | Ranked matches with per-rule pass/fail reasons and estimated cost using BOT rates |
 | GET/POST/PATCH | `/api/funding/applications` | Pipeline tracking |
 
+### Lending conditions
+Answers the question that comes *before* matching a company to programs: which kinds of business
+can borrow more easily, and what is blocking this one. Needs no registered SME.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/lending/overview` | How open each industry is, counted from the program registry — programs accepting it, how many need no collateral, how many accept a day-old business, how many set no DSCR floor — plus the standard thresholds each rule takes across all programs. The openness score ships with its own formula so it is not a black box. |
+| GET | `/api/lending/example` | A pre-filled profile so the page shows a real result before the user types anything |
+| POST | `/api/lending/check` | Body is a `LendingProfile`. Returns per-program pass/fail with both sides of every comparison, the conditions worth fixing ranked by how many programs each actually unlocks, and the same profile re-scored under every other industry. |
+
+`unlocks` is not an estimate: the server applies the proposed target to the profile, re-checks the whole
+registry, and reports the **net** change — so a change that would also push the profile out of a program
+it currently passes is counted honestly rather than shown as a pure gain.
+
 ### AI advisor
 | Method | Path | Description |
 |---|---|---|

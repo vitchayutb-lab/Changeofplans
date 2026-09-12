@@ -93,6 +93,8 @@ label it Demo Data when the gateway is unreachable.
 | `search_funding_programs` | `{ type?, minAmount?, maxAmount?, industry? }` | filtered program list |
 | `match_funding_programs` | `{ smeId, amountNeeded? }` | ranked matches with per-rule pass/fail explanations and BOT-based cost estimates |
 | `get_funding_program` | `{ programId }` | full program detail |
+| `lending_conditions_overview` | `{}` | how open each industry is, and the standard threshold each condition takes across the registry |
+| `check_lending_conditions` | `{ industry?, province?, yearsOperating?, employees?, annualRevenue?, dscr?, hasCollateral?, amountNeeded }` | programs passed/blocked with reasons, which single fix unlocks the most, and the same profile re-scored under every other industry |
 
 ### Explanation tool
 

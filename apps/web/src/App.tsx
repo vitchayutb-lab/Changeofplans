@@ -13,6 +13,7 @@ const NAV = [
   { to: '/loans', label: 'จำลองสินเชื่อ', icon: '🧮' },
   { to: '/startup', label: 'ธุรกิจเริ่มต้น', icon: '🚀' },
   { to: '/funding', label: 'แหล่งเงินทุน', icon: '🎯' },
+  { to: '/lending-conditions', label: 'เงื่อนไขการกู้', icon: '🔑' },
   { to: '/advisor', label: 'ที่ปรึกษา AI', icon: '💬' },
   { to: '/developer', label: 'เครื่องมือ / MCP', icon: '🛠️' },
 ];
