@@ -20,6 +20,7 @@ import type {
   LendingOverview,
   LendingProfile,
   DebtCapacity,
+  DebtOutlook,
   BotSummary,
   DebtOverview,
   FinancialAnalysis,
@@ -144,6 +145,19 @@ export const api = {
     analysis: (id: string, fiscalYear?: number) =>
       request<FinancialAnalysis>(`/smes/${id}/analysis${query({ fiscalYear })}`),
     debt: (id: string) => request<DebtOverview>(`/smes/${id}/debt`),
+    /** มองไปข้างหน้า: อีกกี่ปีถึงจะเริ่มผ่อนไม่ไหว ภาระหนี้มาจากตารางผ่อนจริง */
+    debtOutlook: (
+      id: string,
+      params: {
+        years?: number;
+        basis?: string;
+        gdp?: number;
+        sensitivity?: number;
+        growth?: number;
+        rateShock?: number;
+        spread?: number;
+      } = {},
+    ) => request<DebtOutlook>(`/smes/${id}/debt-outlook${query(params)}`),
     /** ด้านกลับของการจำลอง: เพดานดอกเบี้ยและวงเงินที่กระแสเงินสดรับไหว */
     debtCapacity: (
       id: string,

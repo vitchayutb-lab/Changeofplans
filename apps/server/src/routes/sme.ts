@@ -13,6 +13,7 @@ import {
 import { analyzeSme, statementHistory } from '../services/finance/analysis.js';
 import { getDebtOverview } from '../services/finance/debt.js';
 import { debtCapacity } from '../services/finance/capacity.js';
+import { debtOutlook } from '../services/finance/outlook.js';
 import { simulateLoan } from '../services/finance/simulation.js';
 import { balanceCheck } from '../services/finance/statement.js';
 import { asyncRoute, badRequest, notFound } from '../middleware/errors.js';
@@ -149,6 +150,58 @@ smeRouter.get(
  *
  * ไม่ระบุ amount มาก็ตอบได้ เพราะจะใช้วงเงินสูงสุดที่รับไหวที่ DSCR 1.20 เป็นค่าตั้งต้น
  */
+/**
+ * ภาระหนี้ในอนาคต — เดินเวลาไปข้างหน้าแล้วตรวจ DSCR ทุกปี
+ *
+ * basis 'history' ใช้อัตราการเติบโตจริงของกิจการ ส่วน 'gdp' และ 'manual' เป็นสมมติฐาน
+ * ซึ่งคำตอบจะติดธง growthIsAssumption ไว้ให้หน้าเว็บแสดงป้ายกำกับ
+ */
+smeRouter.get(
+  '/:id/debt-outlook',
+  asyncRoute(async (req, res) => {
+    const sme = requireSme(req.params.id!);
+    const years = queryNumber(req, 'years');
+    const basis = queryString(req, 'basis');
+    const gdpGrowthPct = queryNumber(req, 'gdp');
+    const revenueSensitivity = queryNumber(req, 'sensitivity');
+    const revenueGrowthPct = queryNumber(req, 'growth');
+    const rateShockPct = queryNumber(req, 'rateShock');
+    const scenarioSpreadPct = queryNumber(req, 'spread');
+
+    if (years !== undefined && (years < 1 || years > 20)) {
+      throw badRequest('years ต้องอยู่ระหว่าง 1 ถึง 20');
+    }
+    if (basis !== undefined && !['history', 'gdp', 'manual'].includes(basis)) {
+      throw badRequest('basis ต้องเป็น history, gdp หรือ manual');
+    }
+    if (gdpGrowthPct !== undefined && (gdpGrowthPct < -20 || gdpGrowthPct > 20)) {
+      throw badRequest('gdp ต้องอยู่ระหว่าง -20 ถึง 20');
+    }
+    if (revenueSensitivity !== undefined && (revenueSensitivity < 0 || revenueSensitivity > 5)) {
+      throw badRequest('sensitivity ต้องอยู่ระหว่าง 0 ถึง 5');
+    }
+    if (rateShockPct !== undefined && (rateShockPct < 0 || rateShockPct > 15)) {
+      throw badRequest('rateShock ต้องอยู่ระหว่าง 0 ถึง 15');
+    }
+    if (scenarioSpreadPct !== undefined && (scenarioSpreadPct < 0 || scenarioSpreadPct > 20)) {
+      throw badRequest('spread ต้องอยู่ระหว่าง 0 ถึง 20');
+    }
+
+    res.json(
+      await debtOutlook({
+        smeId: sme.id,
+        ...(years !== undefined ? { years } : {}),
+        ...(basis !== undefined ? { basis: basis as 'history' | 'gdp' | 'manual' } : {}),
+        ...(gdpGrowthPct !== undefined ? { gdpGrowthPct } : {}),
+        ...(revenueSensitivity !== undefined ? { revenueSensitivity } : {}),
+        ...(revenueGrowthPct !== undefined ? { revenueGrowthPct } : {}),
+        ...(rateShockPct !== undefined ? { rateShockPct } : {}),
+        ...(scenarioSpreadPct !== undefined ? { scenarioSpreadPct } : {}),
+      }),
+    );
+  }),
+);
+
 smeRouter.get(
   '/:id/debt-capacity',
   asyncRoute(async (req, res) => {
