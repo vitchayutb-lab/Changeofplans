@@ -15,6 +15,7 @@ const NAV = [
   { to: '/debt-outlook', label: 'ภาระหนี้ในอนาคต', icon: '🔭' },
   { to: '/startup', label: 'ธุรกิจเริ่มต้น', icon: '🚀' },
   { to: '/funding', label: 'แหล่งเงินทุน', icon: '🎯' },
+  { to: '/funding-strategy', label: 'จัดหาแหล่งเงินทุน', icon: '🧭' },
   { to: '/lending-conditions', label: 'เงื่อนไขการกู้', icon: '🔑' },
   { to: '/advisor', label: 'ที่ปรึกษา AI', icon: '💬' },
   { to: '/developer', label: 'เครื่องมือ / MCP', icon: '🛠️' },

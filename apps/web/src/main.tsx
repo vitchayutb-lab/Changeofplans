@@ -11,6 +11,7 @@ import { LoanSimulatorPage } from './pages/LoanSimulatorPage';
 import { DebtCapacityPage } from './pages/DebtCapacityPage';
 import { DebtOutlookPage } from './pages/DebtOutlookPage';
 import { FundingPage } from './pages/FundingPage';
+import { FundingStrategyPage } from './pages/FundingStrategyPage';
 import { LendingConditionsPage } from './pages/LendingConditionsPage';
 import { StartupPage } from './pages/StartupPage';
 import { AdvisorPage } from './pages/AdvisorPage';
@@ -35,6 +36,7 @@ const router = createBrowserRouter([
       { path: 'debt-outlook', element: <DebtOutlookPage /> },
       { path: 'startup', element: <StartupPage /> },
       { path: 'funding', element: <FundingPage /> },
+      { path: 'funding-strategy', element: <FundingStrategyPage /> },
       { path: 'lending-conditions', element: <LendingConditionsPage /> },
       { path: 'advisor', element: <AdvisorPage /> },
       { path: 'developer', element: <DeveloperPage /> },

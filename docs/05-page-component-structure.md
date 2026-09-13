@@ -33,6 +33,7 @@ design-token CSS layer keeps the bundle honest and the markup readable.
 | `/startup` | `StartupPage` | Loan-readiness assessment for a business with no statements yet |
 | `/benchmarks` | `BenchmarksPage` | Every ratio the engine measures, with formula and the bands that decide good / watch / risk |
 | `/funding` | `FundingPage` | Program database + ranked matches + pipeline |
+| `/funding-strategy` | `FundingStrategyPage` | Where to raise money from and in what order — starting with cash already tied up in the business |
 | `/lending-conditions` | `LendingConditionsPage` | Which kinds of business borrow more easily, what is blocking this one, and what one fix unlocks |
 | `/advisor` | `AdvisorPage` | AI Financial Advisor chat with visible tool trace |
 | `/developer` | `DeveloperPage` | Tool catalog, manual tool invocation, cache + health inspector |

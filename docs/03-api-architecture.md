@@ -80,6 +80,11 @@ no key is configured, `"degraded"` when a key exists but the last call failed.
 | GET | `/api/smes/:id/debt` | Existing loans, re-priced against live BOT rates, with total service cost |
 | GET | `/api/smes/:id/debt-capacity` | The inverse of the loan simulator. Given the cash flow in the latest statement and the existing debt service, solves for the **highest interest rate** that still holds DSCR at 1.00 / 1.20 / 1.50, and the **largest new loan** affordable at the live market rate (MLR + spread). Query: `amount`, `years`, `spread`; omit `amount` and it uses the DSCR-1.20 capacity. |
 | GET | `/api/smes/:id/debt-outlook` | Walks forward year by year and tests DSCR at each step. The debt side is not held constant: every existing facility is amortized on its own schedule, so term loans mature and drop out while an OD stays interest-only (matching how `getDebtOverview` computes today's DSCR). Three growth scenarios; a rate shock applies to floating-rate loans only. Query: `years`, `basis`, `gdp`, `sensitivity`, `growth`, `rateShock`, `spread`. |
+| GET | `/api/smes/:id/funding-strategy` | Where to raise a given amount from, cheapest first. Starts with cash the business already owns but has tied up in receivables and inventory — quantified in baht from the real statement against the **same day-count benchmarks the ratio registry uses**, so the targets cannot drift from what the rest of the app calls good. Then grants, subsidies, borrowing headroom (the DSCR-1.20 capacity from `debt-capacity`, not a separate number) and equity. Query: `need`. |
+
+A guarantee is listed as a source but carries `countsTowardPlan: false`: it is not money, it removes the
+collateral barrier, and counting it would double-count against the loan it unlocks. Payable days are
+reported for context only — the system never proposes stretching trade payables as a funding source.
 
 `basis` decides where revenue growth comes from. `history` computes the company's own CAGR from its
 real statements and is the default; `gdp` and `manual` are assumptions and the response sets

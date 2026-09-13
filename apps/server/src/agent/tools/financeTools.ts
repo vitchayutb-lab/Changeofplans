@@ -13,6 +13,7 @@ import { getDebtOverview, loadReferenceRates } from '../../services/finance/debt
 import { convertCurrency, fxSensitivity } from '../../services/finance/fx.js';
 import { debtCapacity as bearableDebtCost } from '../../services/finance/capacity.js';
 import { debtOutlook } from '../../services/finance/outlook.js';
+import { fundingStrategy } from '../../services/finance/strategy.js';
 import { annualDebtService, dscr, quote } from '../../services/finance/loan.js';
 import { simulateLoan } from '../../services/finance/simulation.js';
 import { derive } from '../../services/finance/statement.js';
@@ -776,6 +777,86 @@ const futureOutlook: ToolDefinition = {
   },
 };
 
+/**
+ * ตอบว่า "ควรหาเงินจากไหน" ซึ่งมาก่อนคำถามว่า "สมัครโครงการไหนได้"
+ *
+ * จุดสำคัญที่ต้องส่งต่อให้ผู้ใช้เสมอ: เงินที่ถูกที่สุดไม่ใช่เงินกู้ แต่เป็นเงินของกิจการเอง
+ * ที่จมอยู่ในลูกหนี้และสินค้าคงเหลือ
+ */
+const sourcingPlan: ToolDefinition = {
+  name: 'plan_funding_sources',
+  title: 'วางแผนจัดหาแหล่งเงินทุน',
+  description:
+    'ตอบว่าถ้าต้องการเงินก้อนหนึ่ง ควรหามาจากไหนก่อน-หลัง เรียงตามต้นทุนจริง ' +
+    'เริ่มจากเงินของกิจการเองที่จมอยู่ในลูกหนี้และสินค้าคงเหลือ (คำนวณเป็นบาทจากงบจริง ' +
+    'เทียบกับเกณฑ์จำนวนวันของระบบ) แล้วจึงเป็นเงินให้เปล่า เงินอุดหนุน สินเชื่อ และการเพิ่มทุน ' +
+    'บอกด้วยว่าแผนครอบคลุมเท่าไรและยังขาดอีกเท่าไร ' +
+    'ใช้เมื่อผู้ใช้ถามว่าควรหาเงินจากไหน มีทางเลือกอื่นนอกจากกู้ไหม หรืออยากได้เงินโดยไม่ก่อหนี้เพิ่ม',
+  category: 'funding',
+  readOnly: true,
+  schema: defineSchema<{ needAmount?: number; smeId?: string }>({
+    needAmount: field.number(
+      'จำนวนเงินที่ต้องการ เป็นบาท (ไม่ระบุจะใช้วงเงินกู้ที่รับไหวที่ DSCR 1.20)',
+      { minimum: 0 },
+    ),
+    smeId: smeIdField,
+  }),
+  async handler(args: { needAmount?: number; smeId?: string }, ctx) {
+    const smeId = resolveSmeId(args, ctx);
+    const result = await fundingStrategy({
+      smeId,
+      ...(args.needAmount !== undefined ? { needAmount: args.needAmount } : {}),
+    });
+
+    return {
+      data: {
+        smeId,
+        needAmount: result.needAmount,
+        cashTrappedInWorkingCapital: {
+          totalReleasable: result.workingCapital.totalReleasable,
+          cashCycleDays: result.workingCapital.cashCycleDays,
+          payableDays: result.workingCapital.payableDays,
+          items: result.workingCapital.releases.map((release) => ({
+            what: release.labelTh,
+            currentDays: release.currentDays,
+            targetDays: release.targetDays,
+            releasable: release.releasableAmount,
+            howTo: release.actionTh,
+            note: release.releasableAmount === 0 ? 'ดีกว่าเกณฑ์อยู่แล้ว ไม่มีเงินให้ปลดล็อก' : null,
+          })),
+        },
+        sources: result.sources.map((source) => ({
+          source: source.labelTh,
+          available: source.availableAmount,
+          annualCostPct: source.annualCostPct,
+          nonCashCost: source.nonCashCostTh,
+          countsAsMoney: source.countsTowardPlan,
+          why: source.whyTh,
+          howTo: source.howToTh,
+          basis: source.basisTh,
+          programs: source.programsTh,
+        })),
+        recommendedPlan: result.plan.map((step) => ({
+          step: step.labelTh,
+          amount: step.amount,
+          runningTotal: step.cumulativeAmount,
+          annualInterestCost: step.annualCost,
+        })),
+        covered: result.coveredAmount,
+        stillShort: result.gapAmount,
+        planAnnualCost: result.planAnnualCost,
+        blendedCostPct: result.blendedCostPct,
+        summary: result.summaryTh,
+        isEstimate: true,
+        note: result.disclaimerTh,
+      },
+      source: 'local',
+      notice: null,
+      citation: null,
+    };
+  },
+};
+
 export const financeTools: ToolDefinition[] = [
   listCompanies,
   analyzeStatement,
@@ -785,6 +866,7 @@ export const financeTools: ToolDefinition[] = [
   debtCapacity,
   bearableCost,
   futureOutlook,
+  sourcingPlan,
   existingDebt,
   cashRunway,
   currencyTool,

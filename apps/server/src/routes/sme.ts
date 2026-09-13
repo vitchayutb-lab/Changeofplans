@@ -14,6 +14,7 @@ import { analyzeSme, statementHistory } from '../services/finance/analysis.js';
 import { getDebtOverview } from '../services/finance/debt.js';
 import { debtCapacity } from '../services/finance/capacity.js';
 import { debtOutlook } from '../services/finance/outlook.js';
+import { fundingStrategy } from '../services/finance/strategy.js';
 import { simulateLoan } from '../services/finance/simulation.js';
 import { balanceCheck } from '../services/finance/statement.js';
 import { asyncRoute, badRequest, notFound } from '../middleware/errors.js';
@@ -150,6 +151,26 @@ smeRouter.get(
  *
  * ไม่ระบุ amount มาก็ตอบได้ เพราะจะใช้วงเงินสูงสุดที่รับไหวที่ DSCR 1.20 เป็นค่าตั้งต้น
  */
+/**
+ * จัดหาแหล่งเงินทุน — ควรหาเงินจากไหนก่อน-หลัง เรียงตามต้นทุนจริง
+ *
+ * ไม่ระบุ need มาก็ตอบได้ โดยใช้วงเงินกู้ที่รับไหวที่ DSCR 1.20 เป็นค่าตั้งต้น
+ */
+smeRouter.get(
+  '/:id/funding-strategy',
+  asyncRoute(async (req, res) => {
+    const sme = requireSme(req.params.id!);
+    const needAmount = queryNumber(req, 'need');
+    if (needAmount !== undefined && needAmount < 0) throw badRequest('need ต้องไม่ติดลบ');
+    res.json(
+      await fundingStrategy({
+        smeId: sme.id,
+        ...(needAmount !== undefined ? { needAmount } : {}),
+      }),
+    );
+  }),
+);
+
 /**
  * ภาระหนี้ในอนาคต — เดินเวลาไปข้างหน้าแล้วตรวจ DSCR ทุกปี
  *
