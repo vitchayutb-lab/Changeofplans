@@ -8,6 +8,7 @@ import { MarketDataPage } from './pages/MarketDataPage';
 import { FinancialsPage } from './pages/FinancialsPage';
 import { BenchmarksPage } from './pages/BenchmarksPage';
 import { LoanSimulatorPage } from './pages/LoanSimulatorPage';
+import { DebtCapacityPage } from './pages/DebtCapacityPage';
 import { FundingPage } from './pages/FundingPage';
 import { LendingConditionsPage } from './pages/LendingConditionsPage';
 import { StartupPage } from './pages/StartupPage';
@@ -29,6 +30,7 @@ const router = createBrowserRouter([
       { path: 'financials', element: <FinancialsPage /> },
       { path: 'benchmarks', element: <BenchmarksPage /> },
       { path: 'loans', element: <LoanSimulatorPage /> },
+      { path: 'debt-capacity', element: <DebtCapacityPage /> },
       { path: 'startup', element: <StartupPage /> },
       { path: 'funding', element: <FundingPage /> },
       { path: 'lending-conditions', element: <LendingConditionsPage /> },

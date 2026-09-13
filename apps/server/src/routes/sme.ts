@@ -12,6 +12,7 @@ import {
 } from '../db/smeRepo.js';
 import { analyzeSme, statementHistory } from '../services/finance/analysis.js';
 import { getDebtOverview } from '../services/finance/debt.js';
+import { debtCapacity } from '../services/finance/capacity.js';
 import { simulateLoan } from '../services/finance/simulation.js';
 import { balanceCheck } from '../services/finance/statement.js';
 import { asyncRoute, badRequest, notFound } from '../middleware/errors.js';
@@ -140,6 +141,38 @@ smeRouter.get(
   asyncRoute(async (req, res) => {
     const sme = requireSme(req.params.id!);
     res.json(await getDebtOverview(sme.id));
+  }),
+);
+
+/**
+ * ต้นทุนหนี้ที่รับไหว — ด้านกลับของการจำลองสินเชื่อ
+ *
+ * ไม่ระบุ amount มาก็ตอบได้ เพราะจะใช้วงเงินสูงสุดที่รับไหวที่ DSCR 1.20 เป็นค่าตั้งต้น
+ */
+smeRouter.get(
+  '/:id/debt-capacity',
+  asyncRoute(async (req, res) => {
+    const sme = requireSme(req.params.id!);
+    const amount = queryNumber(req, 'amount');
+    const years = queryNumber(req, 'years');
+    const spreadPct = queryNumber(req, 'spread');
+
+    if (amount !== undefined && amount < 0) throw badRequest('amount ต้องไม่ติดลบ');
+    if (years !== undefined && (years <= 0 || years > 40)) {
+      throw badRequest('years ต้องอยู่ระหว่าง 0 ถึง 40');
+    }
+    if (spreadPct !== undefined && (spreadPct < 0 || spreadPct > 30)) {
+      throw badRequest('spread ต้องอยู่ระหว่าง 0 ถึง 30');
+    }
+
+    res.json(
+      await debtCapacity({
+        smeId: sme.id,
+        ...(amount !== undefined ? { amount } : {}),
+        ...(years !== undefined ? { years } : {}),
+        ...(spreadPct !== undefined ? { spreadPct } : {}),
+      }),
+    );
   }),
 );
 
