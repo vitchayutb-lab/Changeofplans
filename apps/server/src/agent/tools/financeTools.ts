@@ -11,6 +11,7 @@ import { getBotService } from '../../services/bot/botService.js';
 import { analyzeSme, loadStatements, NotFoundError } from '../../services/finance/analysis.js';
 import { getDebtOverview, loadReferenceRates } from '../../services/finance/debt.js';
 import { convertCurrency, fxSensitivity } from '../../services/finance/fx.js';
+import { debtCapacity as bearableDebtCost } from '../../services/finance/capacity.js';
 import { annualDebtService, dscr, quote } from '../../services/finance/loan.js';
 import { simulateLoan } from '../../services/finance/simulation.js';
 import { derive } from '../../services/finance/statement.js';
@@ -314,7 +315,9 @@ const debtCapacity: ToolDefinition = {
   title: 'ประเมินความสามารถในการก่อหนี้เพิ่ม',
   description:
     'เทียบ DSCR, D/E และความสามารถจ่ายดอกเบี้ย ก่อนและหลังกู้เพิ่ม พร้อมคำตัดสิน ' +
-    'good/watch/risk และเหตุผล ใช้ตอบว่า "ควรกู้ตอนนี้ไหม" หรือ "กู้ได้เท่าไรถึงยังปลอดภัย"',
+    'good/watch/risk และเหตุผล ใช้ตอบว่า "ถ้ากู้จำนวนนี้ที่อัตรานี้ จะกระทบแค่ไหน" ' +
+    'ต้องรู้วงเงินและอัตราก่อนจึงจะใช้ได้ — ถ้าผู้ใช้ถามว่า "กู้ได้เท่าไร" หรือ ' +
+    '"ดอกเบี้ยเท่าไรถึงรับไหว" ให้ใช้ find_bearable_debt_cost แทน เพราะตัวนี้หาค่าที่ยังไม่รู้ไม่ได้',
   category: 'finance',
   readOnly: true,
   schema: defineSchema<{
@@ -568,6 +571,97 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/**
+ * ด้านกลับของ assess_debt_capacity
+ *
+ * ตัวนั้นต้องรู้วงเงินและอัตราก่อนถึงจะบอกผลกระทบได้ ตัวนี้แก้สมการหาค่าที่ยังไม่รู้:
+ * อัตราสูงสุดที่ยังผ่อนไหว และวงเงินสูงสุดที่รับได้ที่อัตราตลาดจริง
+ */
+const bearableCost: ToolDefinition = {
+  name: 'find_bearable_debt_cost',
+  title: 'หาเพดานดอกเบี้ยและวงเงินที่รับไหว',
+  description:
+    'ตอบว่า "ดอกเบี้ยสูงสุดเท่าไรที่ยังผ่อนไหว" และ "กู้เพิ่มได้สูงสุดเท่าไร" โดยคิดย้อนจาก ' +
+    'กระแสเงินสดในงบจริงและภาระหนี้เดิม ที่ระดับ DSCR 1.00 / 1.20 / 1.50 พร้อมเทียบกับอัตรา ' +
+    'ตลาดจริง (MLR ของ ธปท. บวกส่วนต่าง) ว่ายังมีที่ว่างอีกกี่จุด ' +
+    'ใช้เมื่อผู้ใช้ถามว่ารับต้นทุนดอกเบี้ยได้ถึงระดับไหน กู้ได้อีกเท่าไร หรือดอกเบี้ยขึ้นอีกเท่าไรถึงจะเริ่มไม่ไหว',
+  category: 'finance',
+  readOnly: true,
+  schema: defineSchema<{ amount?: number; years?: number; spreadPct?: number; smeId?: string }>({
+    amount: field.number(
+      'วงเงินที่อยากกู้เพิ่ม เป็นบาท (ไม่ระบุจะใช้วงเงินสูงสุดที่รับไหวที่ DSCR 1.20)',
+      { minimum: 0 },
+    ),
+    years: field.number('จำนวนปีที่ผ่อน (ค่าเริ่มต้น 7)', { default: 7, minimum: 0.25, maximum: 40 }),
+    spreadPct: field.number('ส่วนต่างความเสี่ยงที่บวกจาก MLR (ค่าเริ่มต้น 1.5)', { default: 1.5 }),
+    smeId: smeIdField,
+  }),
+  async handler(
+    args: { amount?: number; years?: number; spreadPct?: number; smeId?: string },
+    ctx,
+  ) {
+    const smeId = resolveSmeId(args, ctx);
+    const result = await bearableDebtCost({
+      smeId,
+      ...(args.amount !== undefined ? { amount: args.amount } : {}),
+      ...(args.years !== undefined ? { years: args.years } : {}),
+      ...(args.spreadPct !== undefined ? { spreadPct: args.spreadPct } : {}),
+    });
+
+    return {
+      data: {
+        smeId,
+        basedOn: {
+          fiscalYear: result.fiscalYear,
+          operatingCashFlow: result.basis.operatingCashFlow,
+          existingAnnualDebtService: result.basis.existingAnnualDebtService,
+          currentDscr: result.basis.currentDscr,
+          existingCostOfDebtPct: result.basis.existingWeightedRatePct,
+        },
+        marketRate: {
+          reference: result.market.referenceRateName,
+          referencePct: result.market.referenceRatePct,
+          spreadPct: result.market.spreadPct,
+          estimatedPct: result.market.estimatedRatePct,
+        },
+        atAmount: result.request.amount,
+        overYears: result.request.years,
+        rateCeilings: result.ceilings.map((ceiling) => ({
+          targetDscr: ceiling.targetDscr,
+          meaning: ceiling.labelTh,
+          maxRatePct: ceiling.maxRatePct,
+          // สองกรณีนี้ตรงข้ามกัน อ่านสลับกันคืออ่านผลกลับด้าน จึงต้องบอกเป็นคำ
+          note: ceiling.unbounded
+            ? 'กระแสเงินสดไม่ใช่ข้อจำกัด รับไหวเกินอัตราที่มีใครเสนอจริง'
+            : ceiling.maxRatePct === null
+              ? 'รับไม่ไหวแม้ดอกเบี้ยเป็นศูนย์ เพราะเงินต้นอย่างเดียวก็เกินกำลัง'
+              : null,
+          headroomVsMarketPct: ceiling.headroomPct,
+          marketWithinReach: ceiling.withinReach,
+        })),
+        borrowingCapacity: result.capacities.map((capacity) => ({
+          targetDscr: capacity.targetDscr,
+          maxAmount: capacity.maxAmount,
+          monthlyPayment: capacity.monthlyPayment,
+        })),
+        blendedCostOfDebtAfterPct: result.blendedRateAfterPct,
+        verdict: result.verdict,
+        summary: result.summaryTh,
+        isEstimate: true,
+        note: result.disclaimerTh,
+      },
+      source: result.market.provenance?.source ?? 'local',
+      notice: result.market.provenance?.notice ?? null,
+      citation: result.market.provenance
+        ? {
+            label: `${result.market.provenance.sourceLabel} — MLR`,
+            asOf: result.market.provenance.lastUpdated,
+          }
+        : null,
+    };
+  },
+};
+
 export const financeTools: ToolDefinition[] = [
   listCompanies,
   analyzeStatement,
@@ -575,6 +669,7 @@ export const financeTools: ToolDefinition[] = [
   loanPayment,
   financingCost,
   debtCapacity,
+  bearableCost,
   existingDebt,
   cashRunway,
   currencyTool,

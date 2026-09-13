@@ -19,6 +19,7 @@ import type {
   LendingConditionsReport,
   LendingOverview,
   LendingProfile,
+  DebtCapacity,
   BotSummary,
   DebtOverview,
   FinancialAnalysis,
@@ -143,6 +144,11 @@ export const api = {
     analysis: (id: string, fiscalYear?: number) =>
       request<FinancialAnalysis>(`/smes/${id}/analysis${query({ fiscalYear })}`),
     debt: (id: string) => request<DebtOverview>(`/smes/${id}/debt`),
+    /** ด้านกลับของการจำลอง: เพดานดอกเบี้ยและวงเงินที่กระแสเงินสดรับไหว */
+    debtCapacity: (
+      id: string,
+      params: { amount?: number; years?: number; spread?: number } = {},
+    ) => request<DebtCapacity>(`/smes/${id}/debt-capacity${query(params)}`),
     simulate: (
       id: string,
       payload: { amount: number; years: number; rateBasis: string; spreadPct?: number; fixedRatePct?: number },

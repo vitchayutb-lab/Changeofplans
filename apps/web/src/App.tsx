@@ -11,6 +11,7 @@ const NAV = [
   { to: '/financials', label: 'งบการเงิน', icon: '📒' },
   { to: '/benchmarks', label: 'เกณฑ์การวัดธุรกิจ', icon: '📐' },
   { to: '/loans', label: 'จำลองสินเชื่อ', icon: '🧮' },
+  { to: '/debt-capacity', label: 'ต้นทุนหนี้ที่รับไหว', icon: '⚖️' },
   { to: '/startup', label: 'ธุรกิจเริ่มต้น', icon: '🚀' },
   { to: '/funding', label: 'แหล่งเงินทุน', icon: '🎯' },
   { to: '/lending-conditions', label: 'เงื่อนไขการกู้', icon: '🔑' },

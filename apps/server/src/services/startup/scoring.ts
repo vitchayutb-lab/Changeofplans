@@ -16,7 +16,7 @@ import type {
   StartupMetrics,
   StartupProfile,
 } from '@sme/shared';
-import { payment } from '../finance/loan.js';
+import { payment, principalForPayment } from '../finance/loan.js';
 
 /** ส่วนต่างความเสี่ยงที่บวกจากอัตราอ้างอิง — ยิ่งความเสี่ยงสูง ธนาคารยิ่งคิดแพง */
 export function riskSpread(profile: StartupProfile): number {
@@ -61,11 +61,7 @@ export function affordablePrincipal(
     (input.monthlyProfit + input.ownerMonthlyIncome) / targetDscr - input.existingDebtMonthlyPayment;
   if (available <= 0) return 0;
 
-  const i = input.annualRatePct / 100 / 12;
-  const n = Math.round(input.years * 12);
-  if (n <= 0) return 0;
-
-  const principal = i === 0 ? available * n : (available * (1 - Math.pow(1 + i, -n))) / i;
+  const principal = principalForPayment(available, input.annualRatePct, input.years);
   // ปัดลงเป็นหลักหมื่นเพื่อให้เป็นตัวเลขที่พูดกับธนาคารได้จริง
   return Math.max(0, Math.floor(principal / 10_000) * 10_000);
 }

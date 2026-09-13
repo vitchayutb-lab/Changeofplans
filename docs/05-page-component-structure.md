@@ -28,6 +28,7 @@ design-token CSS layer keeps the bundle honest and the markup readable.
 | `/market` | `MarketDataPage` | **Market & Economic Data** — the BOT section in full |
 | `/financials` | `FinancialsPage` | Statements, ratios with benchmarks, trends |
 | `/loans` | `LoanSimulatorPage` | Borrowing simulator wired to live BOT rates |
+| `/debt-capacity` | `DebtCapacityPage` | The inverse question: how high can the rate go before it stops being affordable, and how much more can be borrowed |
 | `/startup` | `StartupPage` | Loan-readiness assessment for a business with no statements yet |
 | `/benchmarks` | `BenchmarksPage` | Every ratio the engine measures, with formula and the bands that decide good / watch / risk |
 | `/funding` | `FundingPage` | Program database + ranked matches + pipeline |
