@@ -12,6 +12,7 @@ import { analyzeSme, loadStatements, NotFoundError } from '../../services/financ
 import { getDebtOverview, loadReferenceRates } from '../../services/finance/debt.js';
 import { convertCurrency, fxSensitivity } from '../../services/finance/fx.js';
 import { debtCapacity as bearableDebtCost } from '../../services/finance/capacity.js';
+import { debtOutlook } from '../../services/finance/outlook.js';
 import { annualDebtService, dscr, quote } from '../../services/finance/loan.js';
 import { simulateLoan } from '../../services/finance/simulation.js';
 import { derive } from '../../services/finance/statement.js';
@@ -662,6 +663,119 @@ const bearableCost: ToolDefinition = {
   },
 };
 
+/**
+ * มองไปข้างหน้า ต่างจาก find_bearable_debt_cost ที่ตอบ ณ วันนี้
+ *
+ * ฝั่งหนี้ไม่คงที่: สินเชื่อแต่ละก้อนครบกำหนดคนละปี ภาระรวมจึงลดลงเป็นขั้น การสมมติว่า
+ * ภาระเท่าเดิมทุกปีให้คำตอบที่มืดกว่าความจริงเสมอ
+ */
+const futureOutlook: ToolDefinition = {
+  name: 'project_debt_serviceability',
+  title: 'คาดการณ์ว่าอีกกี่ปีจะเริ่มผ่อนไม่ไหว',
+  description:
+    'เดินเวลาไปข้างหน้าแล้วตรวจ DSCR ทุกปี ตอบว่าอนาคตยังชำระหนี้ไหวหรือไม่ และปีไหนที่จะเริ่มไม่ไหว ' +
+    'ภาระหนี้รายปีมาจากตารางผ่อนจริงของสินเชื่อที่บันทึกไว้ ก้อนที่ครบกำหนดจะหลุดออกและภาระลดลง ' +
+    'มีสามฉากทัศน์ (เศรษฐกิจชะลอ/ฐาน/ขยายตัว) และใส่การขยับของดอกเบี้ยลอยตัวได้ ' +
+    'อัตราการเติบโตตั้งต้นคิดจากงบจริงย้อนหลังของกิจการเอง ' +
+    'สำคัญ: ระบบไม่มีชุดข้อมูล GDP จริง ถ้าเลือก basis=gdp ตัวเลข GDP เป็นสมมติฐานที่ผู้ใช้กำหนด ' +
+    'ไม่ใช่การพยากรณ์ที่มีแหล่งอ้างอิง และต้องบอกผู้ใช้เช่นนั้นเสมอเมื่อรายงานผล ' +
+    'ใช้เมื่อผู้ใช้ถามถึงอนาคต แนวโน้มเศรษฐกิจ หรือว่าจะแบกภาระหนี้ต่อไปไหวไหม',
+  category: 'finance',
+  readOnly: true,
+  schema: defineSchema<{
+    years?: number;
+    basis?: string;
+    gdpGrowthPct?: number;
+    revenueSensitivity?: number;
+    revenueGrowthPct?: number;
+    rateShockPct?: number;
+    smeId?: string;
+  }>({
+    years: field.number('มองไปข้างหน้ากี่ปี (ค่าเริ่มต้น 5)', { default: 5, minimum: 1, maximum: 20 }),
+    basis: field.enumOf(
+      'ฐานของอัตราการเติบโต: history = จากงบจริงของกิจการ, gdp = อิง GDP ที่สมมติ, manual = ระบุเอง',
+      ['history', 'gdp', 'manual'],
+      { default: 'history' },
+    ),
+    gdpGrowthPct: field.number('อัตราการเติบโตของ GDP ที่สมมติ (ใช้เมื่อ basis = gdp)'),
+    revenueSensitivity: field.number('รายได้เปลี่ยนกี่เท่าของ GDP ที่เปลี่ยน (ค่าเริ่มต้น 1)'),
+    revenueGrowthPct: field.number('อัตราการเติบโตของรายได้ที่ระบุเอง (ใช้เมื่อ basis = manual)'),
+    rateShockPct: field.number('ดอกเบี้ยลอยตัวขยับขึ้นกี่จุด (ค่าเริ่มต้น 0)'),
+    smeId: smeIdField,
+  }),
+  async handler(
+    args: {
+      years?: number;
+      basis?: string;
+      gdpGrowthPct?: number;
+      revenueSensitivity?: number;
+      revenueGrowthPct?: number;
+      rateShockPct?: number;
+      smeId?: string;
+    },
+    ctx,
+  ) {
+    const smeId = resolveSmeId(args, ctx);
+    const result = await debtOutlook({
+      smeId,
+      ...(args.years !== undefined ? { years: args.years } : {}),
+      ...(args.basis !== undefined ? { basis: args.basis as 'history' | 'gdp' | 'manual' } : {}),
+      ...(args.gdpGrowthPct !== undefined ? { gdpGrowthPct: args.gdpGrowthPct } : {}),
+      ...(args.revenueSensitivity !== undefined
+        ? { revenueSensitivity: args.revenueSensitivity }
+        : {}),
+      ...(args.revenueGrowthPct !== undefined ? { revenueGrowthPct: args.revenueGrowthPct } : {}),
+      ...(args.rateShockPct !== undefined ? { rateShockPct: args.rateShockPct } : {}),
+    });
+
+    return {
+      data: {
+        smeId,
+        baseYear: {
+          fiscalYear: result.baseFiscalYear,
+          revenue: result.base.revenue,
+          operatingCashFlow: result.base.operatingCashFlow,
+          cashMarginPct: result.base.cashMarginPct,
+          annualDebtService: result.base.debtService,
+          dscr: result.base.dscr,
+        },
+        growth: {
+          usedPct: result.scenarios.find((s) => s.key === 'base')?.revenueGrowthPct ?? null,
+          source: result.growthSourceTh,
+          // ธงนี้ต้องส่งต่อให้ผู้ใช้เสมอ ไม่ใช่ให้แบบจำลองสรุปเอาเองว่าเป็นตัวเลขจริง
+          isAssumptionNotMeasuredData: result.growthIsAssumption,
+          companyHistoricalCagrPct: result.historicalRevenueCagrPct,
+          historicalYearsAvailable: result.historicalYears,
+        },
+        scenarios: result.scenarios.map((scenario) => ({
+          scenario: scenario.labelTh,
+          revenueGrowthPct: scenario.revenueGrowthPct,
+          minDscr: scenario.minDscr,
+          firstYearBelowLenderThreshold: scenario.firstYearBelowBankLevel,
+          firstYearCashFlowCannotCoverDebt: scenario.firstYearBelowBreakEven,
+          verdict: scenario.verdict,
+          summary: scenario.summaryTh,
+          byYear: scenario.years.map((year) => ({
+            fiscalYear: year.fiscalYear,
+            revenue: year.revenue,
+            operatingCashFlow: year.operatingCashFlow,
+            debtService: year.debtService,
+            dscr: year.dscr,
+            facilitiesMaturingThisYear: year.maturingTh,
+          })),
+        })),
+        summary: result.summaryTh,
+        dataLimitation: result.dataNoticeTh,
+        isEstimate: true,
+        note: result.disclaimerTh,
+      },
+      source: 'local',
+      notice: result.dataNoticeTh,
+      citation: null,
+    };
+  },
+};
+
 export const financeTools: ToolDefinition[] = [
   listCompanies,
   analyzeStatement,
@@ -670,6 +784,7 @@ export const financeTools: ToolDefinition[] = [
   financingCost,
   debtCapacity,
   bearableCost,
+  futureOutlook,
   existingDebt,
   cashRunway,
   currencyTool,

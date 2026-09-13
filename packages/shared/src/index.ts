@@ -6,3 +6,4 @@ export * from './startup.js';
 export * from './reference.js';
 export * from './lending.js';
 export * from './capacity.js';
+export * from './outlook.js';

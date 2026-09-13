@@ -65,6 +65,8 @@ export function LineChart({
 
     let min = Math.min(...values);
     let max = Math.max(...values);
+    // ข้อมูลไม่มีค่าติดลบเลย — จำไว้ก่อนเว้นขอบ เพราะการเว้นขอบจะดันแกนลงไปใต้ศูนย์
+    const nonNegative = min >= 0;
     if (yZero) min = Math.min(0, min);
     if (min === max) {
       min -= Math.abs(min) * 0.02 || 0.5;
@@ -74,6 +76,12 @@ export function LineChart({
       min -= pad;
       max += pad;
     }
+    /*
+     * yZero บังคับฐานเป็นศูนย์ไปแล้ว แต่การเว้นขอบด้านล่างที่ตามมาดึงแกนหลุดไปติดลบ
+     * ทำให้กราฟของค่าที่ติดลบไม่ได้ (เช่น DSCR หรือค่างวด) มีขีดแกนเป็นค่าติดลบ
+     * ซึ่งอ่านแล้วเข้าใจผิดว่าข้อมูลลงไปถึงตรงนั้นได้
+     */
+    if (yZero && nonNegative) min = 0;
 
     const xOf = (label: string): number =>
       labels.length === 1

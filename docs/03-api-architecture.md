@@ -79,6 +79,13 @@ no key is configured, `"degraded"` when a key exists but the last call failed.
 | GET | `/api/smes/:id/analysis` | Derived statement + full ratio set + trends |
 | GET | `/api/smes/:id/debt` | Existing loans, re-priced against live BOT rates, with total service cost |
 | GET | `/api/smes/:id/debt-capacity` | The inverse of the loan simulator. Given the cash flow in the latest statement and the existing debt service, solves for the **highest interest rate** that still holds DSCR at 1.00 / 1.20 / 1.50, and the **largest new loan** affordable at the live market rate (MLR + spread). Query: `amount`, `years`, `spread`; omit `amount` and it uses the DSCR-1.20 capacity. |
+| GET | `/api/smes/:id/debt-outlook` | Walks forward year by year and tests DSCR at each step. The debt side is not held constant: every existing facility is amortized on its own schedule, so term loans mature and drop out while an OD stays interest-only (matching how `getDebtOverview` computes today's DSCR). Three growth scenarios; a rate shock applies to floating-rate loans only. Query: `years`, `basis`, `gdp`, `sensitivity`, `growth`, `rateShock`, `spread`. |
+
+`basis` decides where revenue growth comes from. `history` computes the company's own CAGR from its
+real statements and is the default; `gdp` and `manual` are assumptions and the response sets
+`growthIsAssumption: true` plus a `dataNoticeTh`. **There is no GDP feed in this system** — BOT grants
+API access per product and the national accounts belong to NESDC, not BOT — so a GDP-based projection
+is the user's own assumption, never a sourced forecast, and every surface must say so.
 
 A ceiling distinguishes two opposite outcomes that must never be read for each other:
 `maxRatePct: null` means the principal alone is beyond reach even at 0%, while `unbounded: true`
