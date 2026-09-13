@@ -84,6 +84,7 @@ label it Demo Data when the gateway is unreachable.
 | `assess_debt_capacity` | `{ smeId, additionalPrincipal, annualRatePct, years }` | DSCR & D/E before vs after, headroom, verdict |
 | `find_bearable_debt_cost` | `{ amount?, years?, spreadPct?, smeId? }` | the inverse: highest bearable rate and largest affordable loan at DSCR 1.00/1.20/1.50, with headroom against the live MLR |
 | `project_debt_serviceability` | `{ years?, basis?, gdpGrowthPct?, revenueSensitivity?, revenueGrowthPct?, rateShockPct?, smeId? }` | year-by-year DSCR across three growth scenarios against the real amortization path, and the first year cash flow stops covering debt; flags whether the growth rate is measured or assumed |
+| `plan_funding_sources` | `{ needAmount?, smeId? }` | a cheapest-first sourcing plan: cash releasable from working capital, then grants, subsidies, borrowing headroom and equity, with what the plan covers and what is still short |
 | `estimate_financing_cost` | `{ smeId, principal, years, spreadPct?, rateBasis? }` | **pulls the live BOT lending rate**, derives an estimated SME rate, returns annual interest and its share of EBIT |
 | `project_cash_runway` | `{ smeId, monthlyBurnOverride? }` | months of runway from real cash and operating cash flow |
 | `convert_currency` | `{ amount, from, to }` | conversion using the live BOT FX rate, with the rate and its as-of date |

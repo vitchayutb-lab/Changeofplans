@@ -7,3 +7,4 @@ export * from './reference.js';
 export * from './lending.js';
 export * from './capacity.js';
 export * from './outlook.js';
+export * from './strategy.js';

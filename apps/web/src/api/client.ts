@@ -21,6 +21,7 @@ import type {
   LendingProfile,
   DebtCapacity,
   DebtOutlook,
+  FundingStrategy,
   BotSummary,
   DebtOverview,
   FinancialAnalysis,
@@ -145,6 +146,9 @@ export const api = {
     analysis: (id: string, fiscalYear?: number) =>
       request<FinancialAnalysis>(`/smes/${id}/analysis${query({ fiscalYear })}`),
     debt: (id: string) => request<DebtOverview>(`/smes/${id}/debt`),
+    /** ควรหาเงินจากไหนก่อน-หลัง เรียงตามต้นทุนจริง */
+    fundingStrategy: (id: string, params: { need?: number } = {}) =>
+      request<FundingStrategy>(`/smes/${id}/funding-strategy${query(params)}`),
     /** มองไปข้างหน้า: อีกกี่ปีถึงจะเริ่มผ่อนไม่ไหว ภาระหนี้มาจากตารางผ่อนจริง */
     debtOutlook: (
       id: string,
