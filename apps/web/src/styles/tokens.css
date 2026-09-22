@@ -1,34 +1,44 @@
-/* โทเคนการออกแบบ — สีและระยะห่างทั้งหมดอ้างอิงจากไฟล์นี้ไฟล์เดียว */
+/*
+ * โทเคนการออกแบบ — สีและระยะห่างทั้งหมดอ้างอิงจากไฟล์นี้ไฟล์เดียว
+ *
+ * ธีมสว่างเป็นค่าเริ่มต้นใน :root ธีมมืดมีนิยามซ้ำสองที่ด้วยความตั้งใจ:
+ *   1) ใต้ @media (prefers-color-scheme: dark) — สำหรับตอนที่ผู้ใช้ยังไม่เคยกดเลือกเอง
+ *      (ยังไม่มี data-theme หรือ localStorage) ให้ตามค่าที่ตั้งไว้ในระบบปฏิบัติการ
+ *   2) ใต้ :root[data-theme="dark"] — สำหรับตอนที่ผู้ใช้กดปุ่มสลับธีมเอง (ดู ThemeToggle
+ *      และ lib/theme.ts) ค่านี้ต้องชนะค่าระบบปฏิบัติการเสมอไม่ว่าเครื่องตั้งไว้ยังไง
+ * ตัวกันจอกระพริบใน index.html ต้องคำนวณผลตรงกับสามชั้นนี้เป๊ะ
+ */
 
 :root {
   color-scheme: light;
 
-  --bg: #f4f6fa;
+  --bg: #f6f7fb;
   --surface: #ffffff;
-  --surface-alt: #f8fafc;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
+  --surface-alt: #f1f4f9;
+  --border: #e3e7ef;
+  --border-strong: #cbd3e1;
 
-  --text: #0f172a;
-  --text-muted: #64748b;
-  --text-faint: #94a3b8;
+  --text: #101423;
+  --text-muted: #626a80;
+  --text-faint: #9399ab;
 
-  --brand: #1d4ed8;
-  --brand-soft: #dbeafe;
-  --brand-dark: #1e3a8a;
+  --brand: #4f46e5;
+  --brand-soft: #eef1ff;
+  --brand-dark: #3730a3;
 
-  --good: #15803d;
-  --good-soft: #dcfce7;
-  --watch: #b45309;
-  --watch-soft: #fef3c7;
-  --risk: #b91c1c;
-  --risk-soft: #fee2e2;
-  --demo: #a16207;
-  --demo-soft: #fef9c3;
+  --good: #059669;
+  --good-soft: #e0f5ec;
+  --watch: #d97706;
+  --watch-soft: #fdf0d9;
+  --risk: #dc2626;
+  --risk-soft: #fce6e6;
+  --demo: #7c3aed;
+  --demo-soft: #f1e9fd;
 
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 1px 2px rgb(15 23 42 / 6%), 0 4px 12px rgb(15 23 42 / 4%);
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 1px 2px rgb(16 20 35 / 6%), 0 8px 20px rgb(16 20 35 / 6%);
+  --shadow-lg: 0 12px 32px rgb(16 20 35 / 12%);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -40,35 +50,78 @@
   --font: 'IBM Plex Sans Thai', 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, 'Segoe UI',
     'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 200ms;
+  --duration-base: 280ms;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --bg: #0b1220;
-    --surface: #131c2e;
-    --surface-alt: #182236;
-    --border: #24304a;
-    --border-strong: #33415f;
+    --bg: #0a0f1c;
+    --surface: #10162a;
+    --surface-alt: #182036;
+    --border: #232c47;
+    --border-strong: #323e60;
 
-    --text: #e8edf7;
-    --text-muted: #9aa8c0;
-    --text-faint: #6b7a94;
+    --text: #e7ebf7;
+    --text-muted: #97a2c0;
+    --text-faint: #6a7391;
 
-    --brand: #6ea0ff;
-    --brand-soft: #1c2c4d;
-    --brand-dark: #b9d0ff;
+    --brand: #8b8ef8;
+    --brand-soft: #1f2350;
+    --brand-dark: #c7cbff;
 
-    --good: #4ade80;
-    --good-soft: #14321f;
+    --good: #34d399;
+    --good-soft: #103524;
     --watch: #fbbf24;
     --watch-soft: #3a2c0a;
     --risk: #f87171;
     --risk-soft: #3d1717;
-    --demo: #fcd34d;
-    --demo-soft: #3a2f0b;
+    --demo: #c084fc;
+    --demo-soft: #2e1065;
 
-    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 14px rgb(0 0 0 / 30%);
+    --shadow: 0 1px 2px rgb(0 0 0 / 45%), 0 8px 22px rgb(0 0 0 / 35%);
+    --shadow-lg: 0 16px 36px rgb(0 0 0 / 45%);
+  }
+}
+
+/* ผู้ใช้กดเลือกโหมดมืดเอง — ต้องชนะค่า prefers-color-scheme ของระบบปฏิบัติการเสมอ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0a0f1c;
+  --surface: #10162a;
+  --surface-alt: #182036;
+  --border: #232c47;
+  --border-strong: #323e60;
+
+  --text: #e7ebf7;
+  --text-muted: #97a2c0;
+  --text-faint: #6a7391;
+
+  --brand: #8b8ef8;
+  --brand-soft: #1f2350;
+  --brand-dark: #c7cbff;
+
+  --good: #34d399;
+  --good-soft: #103524;
+  --watch: #fbbf24;
+  --watch-soft: #3a2c0a;
+  --risk: #f87171;
+  --risk-soft: #3d1717;
+  --demo: #c084fc;
+  --demo-soft: #2e1065;
+
+  --shadow: 0 1px 2px rgb(0 0 0 / 45%), 0 8px 22px rgb(0 0 0 / 35%);
+  --shadow-lg: 0 16px 36px rgb(0 0 0 / 45%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
   }
 }

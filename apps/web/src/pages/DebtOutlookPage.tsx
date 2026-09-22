@@ -36,7 +36,7 @@ function thresholdSeries(labels: string[], value: number, label: string): ChartS
   return {
     label,
     points: labels.map((x) => ({ x, y: value })),
-    color: value >= 1.2 ? '#a16207' : '#be123c',
+    color: value >= 1.2 ? 'var(--watch)' : 'var(--risk)',
   };
 }
 

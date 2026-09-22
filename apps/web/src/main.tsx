@@ -1,8 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, redirect, RouterProvider } from 'react-router-dom';
 import { App } from './App';
 import { AppProvider } from './context';
+import { hasSeenWelcome } from './lib/welcome';
+import { WelcomePage } from './pages/WelcomePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { MarketDataPage } from './pages/MarketDataPage';
 import { FinancialsPage } from './pages/FinancialsPage';
@@ -21,13 +23,23 @@ import './styles/app.css';
 
 const router = createBrowserRouter([
   {
+    path: '/welcome',
+    element: <WelcomePage />,
+    errorElement: <NotFoundPage />,
+  },
+  {
     path: '/',
     element: <App />,
     // ไม่มีตัวนี้ react-router จะแสดงหน้าข้อผิดพลาดของตัวเองที่พูดกับนักพัฒนา
     // ซึ่งไม่ควรโผล่บนเว็บที่เปิดให้คนทั่วไปใช้
     errorElement: <NotFoundPage />,
     children: [
-      { index: true, element: <DashboardPage /> },
+      {
+        index: true,
+        // เปิดเว็บครั้งแรกยังไม่เคยเห็นหน้า Welcome — พาไปหน้านั้นก่อนเข้า Dashboard
+        loader: () => (hasSeenWelcome() ? null : redirect('/welcome')),
+        element: <DashboardPage />,
+      },
       { path: 'market', element: <MarketDataPage /> },
       { path: 'financials', element: <FinancialsPage /> },
       { path: 'benchmarks', element: <BenchmarksPage /> },
