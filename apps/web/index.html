@@ -8,6 +8,27 @@
       name="description"
       content="วิเคราะห์งบการเงิน SME พร้อมข้อมูลดอกเบี้ยและอัตราแลกเปลี่ยนจากธนาคารแห่งประเทศไทย"
     />
+    <script>
+      /*
+       * ต้องตั้ง data-theme ก่อนที่ CSS จะถูกวาดผล ไม่งั้นหน้าจะกระพริบเป็นสว่างก่อน
+       * แล้วค่อยสลับเป็นมืดทีหลัง (Flash of Wrong Theme) — ลำดับการเลือกต้องตรงกับ
+       * apps/web/src/lib/theme.ts: ค่าที่ผู้ใช้เคยเลือก > ค่าระบบปฏิบัติการ > light
+       */
+      (function () {
+        try {
+          var stored = localStorage.getItem('sme-theme');
+          var theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {
+          // localStorage/matchMedia ใช้ไม่ได้ก็ปล่อยให้ CSS ใช้ค่าเริ่มต้น (light)
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

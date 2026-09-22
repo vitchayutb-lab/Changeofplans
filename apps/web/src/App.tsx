@@ -1,25 +1,11 @@
 /** เปลือกของแอป: แถบข้าง แถบบน แบนเนอร์โหมดสาธิต และพื้นที่แสดงหน้า */
 
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { SourceMode } from '@sme/shared';
 import { useApp } from './context';
 import { SmePicker } from './components/SmePicker';
-
-const NAV = [
-  { to: '/', label: 'ภาพรวม', icon: '📊', end: true },
-  { to: '/market', label: 'ข้อมูลตลาด ธปท.', icon: '🏦' },
-  { to: '/financials', label: 'งบการเงิน', icon: '📒' },
-  { to: '/benchmarks', label: 'เกณฑ์การวัดธุรกิจ', icon: '📐' },
-  { to: '/loans', label: 'จำลองสินเชื่อ', icon: '🧮' },
-  { to: '/debt-capacity', label: 'ต้นทุนหนี้ที่รับไหว', icon: '⚖️' },
-  { to: '/debt-outlook', label: 'ภาระหนี้ในอนาคต', icon: '🔭' },
-  { to: '/startup', label: 'ธุรกิจเริ่มต้น', icon: '🚀' },
-  { to: '/funding', label: 'แหล่งเงินทุน', icon: '🎯' },
-  { to: '/funding-strategy', label: 'จัดหาแหล่งเงินทุน', icon: '🧭' },
-  { to: '/lending-conditions', label: 'เงื่อนไขการกู้', icon: '🔑' },
-  { to: '/advisor', label: 'ที่ปรึกษา AI', icon: '💬' },
-  { to: '/developer', label: 'เครื่องมือ / MCP', icon: '🛠️' },
-];
+import { ThemeToggle } from './components/ThemeToggle';
+import { NAV_ITEMS } from './nav';
 
 const MODE_LABEL: Record<SourceMode, string> = {
   live: 'เชื่อมต่อจริง',
@@ -29,6 +15,7 @@ const MODE_LABEL: Record<SourceMode, string> = {
 
 export function App() {
   const { totalSmes, selectedSme, selectSme, health, error } = useApp();
+  const { pathname } = useLocation();
 
   const botMode = health?.modes.bot ?? 'demo';
   const llmMode = health?.modes.llm ?? 'demo';
@@ -46,7 +33,7 @@ export function App() {
         </div>
 
         <nav className="nav">
-          {NAV.map((item) => (
+          {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -62,6 +49,10 @@ export function App() {
         </nav>
 
         <div className="stack tiny" style={{ marginTop: 'auto' }}>
+          <NavLink to="/welcome" className="nav__guide">
+            <span aria-hidden>❔</span>
+            <span className="nav__guide-label">คู่มือการใช้งาน</span>
+          </NavLink>
           <span className={`mode-dot mode-dot--${botMode}`}>ข้อมูล ธปท.: {MODE_LABEL[botMode]}</span>
           <span className={`mode-dot mode-dot--${llmMode}`}>ที่ปรึกษา AI: {MODE_LABEL[llmMode]}</span>
         </div>
@@ -78,6 +69,7 @@ export function App() {
               {health.modes.database === 'ok' ? 'ปกติ' : 'มีปัญหา'}
             </span>
           )}
+          <ThemeToggle />
         </header>
 
         <div className="page">
@@ -109,7 +101,9 @@ export function App() {
             </div>
           )}
 
-          <Outlet />
+          <div className="page__content" key={pathname}>
+            <Outlet />
+          </div>
         </div>
       </div>
     </div>
