@@ -6,6 +6,7 @@ import { api } from '../api/client';
 import { useApi } from '../api/hooks';
 import { useApp } from '../context';
 import { AsyncBoundary, Card, MetricCard, Section, Verdict } from '../components/primitives';
+import { CountUp } from '../components/CountUp';
 import { SourceBadge } from '../components/SourceBadge';
 import { ProviderLink, ReferenceLinks } from '../components/ReferenceLinks';
 import { formatMoneyShort, formatPercent, formatRatio } from '../components/format';
@@ -75,11 +76,15 @@ export function DashboardPage() {
               <>
                 <div className="grid grid--4">
                   <Card title={`รายได้ปี ${data.fiscalYear}`}>
-                    <div className="metric__value">{formatMoneyShort(data.current.revenue)}</div>
+                    <div className="metric__value">
+                      <CountUp value={data.current.revenue} format={formatMoneyShort} />
+                    </div>
                     <div className="metric__prev">{revenueChangeLabel(data.yoy.revenue)}</div>
                   </Card>
                   <Card title="กำไรสุทธิ">
-                    <div className="metric__value">{formatMoneyShort(data.current.netProfit)}</div>
+                    <div className="metric__value">
+                      <CountUp value={data.current.netProfit} format={formatMoneyShort} />
+                    </div>
                     <div className="metric__prev">
                       อัตรากำไรสุทธิ{' '}
                       {formatPercent((data.current.netProfit / data.current.revenue) * 100, 1)}

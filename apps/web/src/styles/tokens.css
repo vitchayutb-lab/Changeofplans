@@ -51,9 +51,14 @@
     'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
+  /*
+   * ระบบความเร็ว animation กลาง — fast สำหรับ hover/ปุ่ม/tooltip, base (medium) สำหรับ
+   * การเปลี่ยน Category/card/dropdown, slow สำหรับกราฟวาดเข้าและตัวเลขนับขึ้น
+   */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-fast: 200ms;
   --duration-base: 280ms;
+  --duration-slow: 700ms;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -123,5 +128,6 @@
   :root {
     --duration-fast: 0ms;
     --duration-base: 0ms;
+    --duration-slow: 0ms;
   }
 }

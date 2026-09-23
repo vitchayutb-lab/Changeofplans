@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { NAV_ITEMS } from '../nav';
 import { markWelcomeSeen } from '../lib/welcome';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { CategoryBackground } from '../components/CategoryBackground';
 
 const STEPS = [
   { n: 1, title: 'เลือก Category', body: 'เลือกหมวดหมู่จากเมนูด้านข้างตามสิ่งที่ต้องการทำ' },
@@ -21,6 +22,8 @@ export function WelcomePage() {
 
   return (
     <div className="welcome">
+      <CategoryBackground variant="overview" />
+
       <div className="welcome__topbar">
         <ThemeToggle />
       </div>

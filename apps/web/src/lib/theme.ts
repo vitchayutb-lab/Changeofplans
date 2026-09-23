@@ -11,7 +11,13 @@ export type Theme = 'light' | 'dark';
 export const THEME_STORAGE_KEY = 'sme-theme';
 
 function systemPrefersDark(): boolean {
-  return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  try {
+    return typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : false;
+  } catch {
+    return false;
+  }
 }
 
 /** ค่าที่ผู้ใช้เคยเลือกไว้เอง — undefined แปลว่ายังไม่เคยเลือก จะได้ตามระบบปฏิบัติการต่อไป */

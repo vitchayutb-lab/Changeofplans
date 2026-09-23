@@ -159,15 +159,25 @@ export function LineChart({
             .join(' ');
           return (
             <g key={line.label}>
-              <path d={d} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+              <path
+                className="chart-line"
+                d={d}
+                fill="none"
+                stroke={color}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                style={{ animationDelay: `${index * 90}ms` }}
+              />
               {sorted.length <= 40 &&
                 sorted.map((point) => (
                   <circle
+                    className="chart-point"
                     key={point.x}
                     cx={model.xOf(point.x)}
                     cy={model.yOf(point.y)}
                     r={2.5}
                     fill={color}
+                    style={{ animationDelay: `${index * 90 + 500}ms` }}
                   />
                 ))}
             </g>

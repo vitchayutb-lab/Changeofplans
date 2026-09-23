@@ -101,6 +101,7 @@ export function BarChart({
                 const barHeight = Math.abs(yOf(entry.value) - yOf(0));
                 return (
                   <rect
+                    className="chart-bar"
                     key={entry.key}
                     x={x}
                     y={y}
@@ -111,6 +112,7 @@ export function BarChart({
                     // วงแหวนสีพื้นผิวรอบแท่งที่กำลังชี้ ทำให้เห็นว่ากราฟตอบสนอง
                     stroke="var(--surface)"
                     strokeWidth={active === groupIndex ? 2 : 0}
+                    style={{ animationDelay: `${groupIndex * 40}ms` }}
                   />
                 );
               })}

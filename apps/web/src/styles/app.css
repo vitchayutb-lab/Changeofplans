@@ -56,6 +56,11 @@ a {
   display: grid;
   grid-template-columns: 244px 1fr;
   min-height: 100%;
+  transition: grid-template-columns var(--duration-base) var(--ease-out);
+}
+
+.shell--collapsed {
+  grid-template-columns: 72px 1fr;
 }
 
 .sidebar {
@@ -69,6 +74,49 @@ a {
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar--collapsed {
+  padding-left: var(--space-3);
+  padding-right: var(--space-3);
+}
+
+.sidebar--collapsed .brand {
+  justify-content: center;
+}
+
+.sidebar--collapsed .brand__name,
+.sidebar--collapsed .brand__sub,
+.sidebar--collapsed .nav__link-label,
+.sidebar--collapsed .nav__guide-label {
+  display: none;
+}
+
+.sidebar--collapsed .nav__link {
+  justify-content: center;
+}
+
+.sidebar--collapsed .nav__guide {
+  justify-content: center;
+}
+
+.sidebar__collapse {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.sidebar__collapse:hover {
+  background: var(--surface-alt);
+  color: var(--text);
 }
 
 .brand {
@@ -256,12 +304,20 @@ a {
 }
 
 .page {
+  position: relative;
+  overflow: hidden;
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
   max-width: 1280px;
   width: 100%;
+}
+
+.page > .page__content,
+.page > .banner {
+  position: relative;
+  z-index: 1;
 }
 
 .page__header h1 {
@@ -290,6 +346,129 @@ a {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/*
+ * ── พื้นหลังตกแต่งเฉพาะ Category ────────────────────────────────────────
+ *
+ * เป้าหมายคือ "บรรยากาศ" ไม่ใช่จุดสนใจ (content = 100%, decoration = 3–8%)
+ * จึงคุม opacity ไว้ต่ำมากที่นี่ที่เดียว ไม่ใช่ในตัว component — สลับ Light/Dark
+ * แล้วยังอ่านง่ายเหมือนกัน เพราะทุกเส้นใช้ currentColor/โทเคนสีที่มีอยู่แล้ว
+ */
+.category-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--text-faint);
+  animation: bg-breathe 10s var(--ease-out) infinite;
+}
+
+.category-bg__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.category-bg__grid line {
+  stroke: currentColor;
+  opacity: 0.05;
+}
+
+.category-bg__trend,
+.category-bg__trend-alt {
+  stroke: var(--brand);
+  opacity: 0.16;
+  stroke-dasharray: 2600;
+  stroke-dashoffset: 2600;
+  animation: bg-draw calc(var(--duration-slow) * 2) var(--ease-out) forwards;
+}
+
+.category-bg__trend-alt {
+  stroke: var(--text-faint);
+  opacity: 0.14;
+}
+
+.category-bg__dot {
+  fill: var(--brand);
+  opacity: 0.12;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bg-pulse 4s var(--ease-out) infinite;
+}
+
+.category-bg__skyline rect {
+  fill: currentColor;
+  opacity: 0.05;
+}
+
+.category-bg__network line {
+  stroke: currentColor;
+  opacity: 0.09;
+}
+
+.category-bg__doc line {
+  stroke: currentColor;
+  opacity: 0.06;
+}
+
+.category-bg__candles line,
+.category-bg__candles rect {
+  stroke: currentColor;
+  fill: none;
+  opacity: 0.08;
+}
+
+.category-bg__gauge path {
+  stroke: currentColor;
+  opacity: 0.1;
+  fill: none;
+}
+
+.category-bg__gauge-fill {
+  stroke: var(--brand) !important;
+  opacity: 0.2 !important;
+}
+
+.category-bg__timeline line {
+  stroke: currentColor;
+  opacity: 0.09;
+}
+
+@keyframes bg-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes bg-pulse {
+  0%,
+  100% {
+    opacity: 0.06;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.2;
+    transform: scale(1.3);
+  }
+}
+
+@keyframes bg-breathe {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* มือถือจอเล็ก: ตัดพื้นหลังตกแต่งออกทั้งหมด ลดภาระ render และกันไม่ให้แย่งพื้นที่ */
+@media (max-width: 640px) {
+  .category-bg {
+    display: none;
   }
 }
 
@@ -946,6 +1125,16 @@ tbody tr:hover {
     white-space: nowrap;
   }
 
+  /* มือถือใช้แถบแนวนอนเลื่อนได้อยู่แล้ว ไม่ต้องมีโหมดย่อแบบ desktop */
+  .sidebar__collapse {
+    display: none;
+  }
+
+  .sidebar--collapsed .brand__name,
+  .sidebar--collapsed .nav__link-label {
+    display: inline;
+  }
+
   .page {
     padding: var(--space-4);
   }
@@ -1194,6 +1383,62 @@ tbody tr:hover {
   margin: 0;
   color: var(--text-muted);
   font-size: 14px;
+}
+
+/* ── กราฟ: เข้าฉากครั้งแรก + อัปเดตข้อมูลแบบนุ่มนวล ──────────────────────── */
+
+/*
+ * เส้นกราฟ "วาด" เข้ามาตอนปรากฏครั้งแรก (stroke ไล่จาก dashoffset เต็มเส้นไปเป็น 0)
+ * ส่วน transition ของ d ทำให้ครั้งถัดไปที่ข้อมูลเปลี่ยน (เช่นกดคำนวณใหม่) เส้นขยับ
+ * ไปตำแหน่งใหม่แบบนุ่มนวลแทนการสลับพรวดทันที — เบราว์เซอร์ที่รองรับเท่านั้นที่
+ * เห็นผล ที่ไม่รองรับก็ยัง fallback เป็นการสลับทันทีตามปกติ ไม่มีอะไรพัง
+ */
+.chart-line {
+  stroke-dasharray: 2000;
+  stroke-dashoffset: 2000;
+  animation: chart-draw calc(var(--duration-slow) * 1.3) var(--ease-out) forwards;
+  transition: d var(--duration-base) var(--ease-out);
+}
+
+.chart-point {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: chart-point-in var(--duration-base) var(--ease-out) forwards;
+  transition: cx var(--duration-base) var(--ease-out), cy var(--duration-base) var(--ease-out);
+}
+
+.chart-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: chart-bar-grow var(--duration-slow) var(--ease-out) backwards;
+  transition: y var(--duration-base) var(--ease-out), height var(--duration-base) var(--ease-out);
+}
+
+@keyframes chart-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes chart-point-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes chart-bar-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
 }
 
 /* ── แถบตัวเลขของกราฟ ───────────────────────────────────────────────────── */
@@ -1554,6 +1799,8 @@ tr.is-current .pill {
 /* ── หน้า Welcome / Guidelines ───────────────────────────────────────────── */
 
 .welcome {
+  position: relative;
+  overflow: hidden;
   max-width: 1080px;
   width: 100%;
   margin: 0 auto;
@@ -1562,6 +1809,11 @@ tr.is-current .pill {
   flex-direction: column;
   gap: var(--space-6);
   animation: page-in var(--duration-base) var(--ease-out);
+}
+
+.welcome > *:not(.category-bg) {
+  position: relative;
+  z-index: 1;
 }
 
 .welcome__topbar {

@@ -6,6 +6,8 @@ import { api, ApiError } from '../api/client';
 import { useApi } from '../api/hooks';
 import { useApp } from '../context';
 import { AsyncBoundary, Card, Section, Verdict } from '../components/primitives';
+import { CountUp } from '../components/CountUp';
+import { ThousandsInput } from '../components/ThousandsInput';
 import { SourceBadge } from '../components/SourceBadge';
 import { DownsideCard } from '../components/DownsideCard';
 import { formatMoney, formatPercent, formatTimes } from '../components/format';
@@ -71,7 +73,7 @@ export function LoanSimulatorPage() {
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
             <label className="field">
               <span className="field__label">วงเงิน (บาท)</span>
-              <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" />
+              <ThousandsInput value={amount} onValueChange={setAmount} />
             </label>
             <label className="field">
               <span className="field__label">ระยะเวลาผ่อน (ปี)</span>
@@ -122,11 +124,15 @@ export function LoanSimulatorPage() {
                 <SourceBadge provenance={result.rate.provenance} />
               </Card>
               <Card title="ค่างวดต่อเดือน">
-                <div className="metric__value">{formatMoney(result.quote.monthlyPayment)}</div>
+                <div className="metric__value">
+                  <CountUp value={result.quote.monthlyPayment} format={formatMoney} />
+                </div>
                 <div className="metric__prev">ผ่อน {result.quote.years} ปี</div>
               </Card>
               <Card title="ดอกเบี้ยปีแรก">
-                <div className="metric__value">{formatMoney(result.quote.firstYearInterest)}</div>
+                <div className="metric__value">
+                  <CountUp value={result.quote.firstYearInterest} format={formatMoney} />
+                </div>
                 <div className="metric__prev">
                   ดอกเบี้ยรวมตลอดสัญญา {formatMoney(result.quote.totalInterest)}
                 </div>
