@@ -18,6 +18,7 @@ import type {
 import { api, ApiError } from '../api/client';
 import { useApi } from '../api/hooks';
 import { AsyncBoundary, Card, Section } from '../components/primitives';
+import { ThousandsInput } from '../components/ThousandsInput';
 import { formatMoney, formatMoneyShort } from '../components/format';
 
 const INDUSTRIES: { value: LendingProfile['industry']; label: string }[] = [
@@ -407,21 +408,17 @@ export function LendingConditionsPage() {
 
                 <label className="field">
                   <span className="field__label">รายได้ต่อปี (บาท)</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={profile.annualRevenue}
-                    onChange={(event) => update('annualRevenue', Number(event.target.value))}
+                  <ThousandsInput
+                    value={String(profile.annualRevenue)}
+                    onValueChange={(raw) => update('annualRevenue', Number(raw) || 0)}
                   />
                 </label>
 
                 <label className="field">
                   <span className="field__label">วงเงินที่ต้องการ (บาท)</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={profile.amountNeeded}
-                    onChange={(event) => update('amountNeeded', Number(event.target.value))}
+                  <ThousandsInput
+                    value={String(profile.amountNeeded)}
+                    onValueChange={(raw) => update('amountNeeded', Number(raw) || 0)}
                   />
                 </label>
 

@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react';
 import type { FactorStatus, StartupAssessment, StartupProfile } from '@sme/shared';
 import { api, ApiError } from '../api/client';
 import { Card, Section } from '../components/primitives';
+import { CountUp } from '../components/CountUp';
+import { ThousandsInput } from '../components/ThousandsInput';
 import { SourceBadge } from '../components/SourceBadge';
 import { DownsideCard } from '../components/DownsideCard';
 import { ProviderLink } from '../components/ReferenceLinks';
@@ -153,15 +155,9 @@ export function StartupPage() {
             {MONEY_FIELDS.map((item) => (
               <label key={String(item.key)} className="field">
                 <span className="field__label">{item.label}</span>
-                <input
-                  inputMode="decimal"
+                <ThousandsInput
                   value={String(profile[item.key] as number)}
-                  onChange={(event) =>
-                    update(
-                      item.key,
-                      (Number(event.target.value.replace(/,/g, '')) || 0) as never,
-                    )
-                  }
+                  onValueChange={(raw) => update(item.key, (Number(raw) || 0) as never)}
                 />
                 {item.hint && <span className="tiny muted">{item.hint}</span>}
               </label>
@@ -198,12 +194,9 @@ export function StartupPage() {
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
             <label className="field">
               <span className="field__label">วงเงินที่ขอกู้ (บาท)</span>
-              <input
-                inputMode="decimal"
+              <ThousandsInput
                 value={String(profile.requestedAmount)}
-                onChange={(event) =>
-                  update('requestedAmount', Number(event.target.value.replace(/,/g, '')) || 0)
-                }
+                onValueChange={(raw) => update('requestedAmount', Number(raw) || 0)}
               />
             </label>
             <label className="field">
@@ -258,7 +251,9 @@ function AssessmentResult({ result }: { result: StartupAssessment }) {
         <Card>
           <div className="verdict">
             <div className={`verdict__score verdict__score--${tone}`}>
-              <span className="verdict__number">{result.score}</span>
+              <span className="verdict__number">
+                <CountUp value={result.score} format={(n) => String(Math.round(n))} />
+              </span>
               <span className="verdict__of">/ 100</span>
             </div>
             <div className="verdict__body">
@@ -295,7 +290,9 @@ function AssessmentResult({ result }: { result: StartupAssessment }) {
             </div>
           </Card>
           <Card title="ค่างวดต่อเดือน">
-            <div className="metric__value">{formatMoney(result.metrics.newMonthlyPayment)}</div>
+            <div className="metric__value">
+              <CountUp value={result.metrics.newMonthlyPayment} format={formatMoney} />
+            </div>
             <div className="metric__prev">
               รวมหนี้เดิมเป็น {formatMoney(result.metrics.totalMonthlyDebtService)}
             </div>
@@ -305,7 +302,9 @@ function AssessmentResult({ result }: { result: StartupAssessment }) {
             <div className="metric__prev">เกณฑ์ที่ธนาคารมักใช้คือ 1.20 เท่าขึ้นไป</div>
           </Card>
           <Card title="วงเงินที่กระแสเงินสดรองรับได้">
-            <div className="metric__value">{formatMoney(result.affordableAmount)}</div>
+            <div className="metric__value">
+              <CountUp value={result.affordableAmount} format={formatMoney} />
+            </div>
             <div className="metric__prev">ที่ DSCR 1.20 เท่า ผ่อน {result.profile.requestedYears} ปี</div>
           </Card>
         </div>

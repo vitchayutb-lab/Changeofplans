@@ -14,6 +14,8 @@ import { api } from '../api/client';
 import { useApi } from '../api/hooks';
 import { useApp } from '../context';
 import { AsyncBoundary, Card, Section } from '../components/primitives';
+import { CountUp } from '../components/CountUp';
+import { ThousandsInput } from '../components/ThousandsInput';
 import { formatMoney, formatPercent } from '../components/format';
 
 /** ต้นทุนอ่านเป็นคำ เพราะ "ไม่มีดอกเบี้ย" กับ "ไม่มีต้นทุนเลย" เป็นคนละเรื่อง */
@@ -87,12 +89,10 @@ export function FundingStrategyPage() {
         <div className="row" style={{ alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
           <label className="field" style={{ minWidth: 240 }}>
             <span className="field__label">ต้องการเงินเท่าไร (บาท)</span>
-            <input
-              type="number"
-              min={0}
+            <ThousandsInput
               value={need}
               placeholder="เว้นว่าง = วงเงินกู้ที่รับไหว"
-              onChange={(event) => setNeed(event.target.value)}
+              onValueChange={setNeed}
             />
             <span className="tiny muted">เว้นว่างไว้ ระบบจะใช้วงเงินกู้สูงสุดที่รับไหวที่ DSCR 1.20</span>
           </label>
@@ -114,9 +114,17 @@ export function FundingStrategyPage() {
                     className={`verdict__score verdict__score--${data.gapAmount > 0 ? 'watch' : 'good'}`}
                   >
                     <span className="verdict__number">
-                      {data.needAmount > 0
-                        ? `${Math.round((data.coveredAmount / data.needAmount) * 100)}%`
-                        : '—'}
+                      {data.needAmount > 0 ? (
+                        <>
+                          <CountUp
+                            value={(data.coveredAmount / data.needAmount) * 100}
+                            format={(n) => String(Math.round(n))}
+                          />
+                          %
+                        </>
+                      ) : (
+                        '—'
+                      )}
                     </span>
                     <span className="verdict__of">ของที่ต้องการ</span>
                   </div>

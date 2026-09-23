@@ -7,6 +7,7 @@ import { api } from '../api/client';
 import { useApi } from '../api/hooks';
 import { useApp } from '../context';
 import { AsyncBoundary, Card, Section, Verdict } from '../components/primitives';
+import { ThousandsInput } from '../components/ThousandsInput';
 import { formatMoney, formatMoneyShort, formatPercent, formatRatio } from '../components/format';
 import { BarChart } from '../charts/BarChart';
 
@@ -299,13 +300,10 @@ function StatementForm({
           {FORM_FIELDS.map((field) => (
             <label key={field.key} className="field">
               <span className="field__label">{field.label}</span>
-              <input
+              <ThousandsInput
                 value={values[field.key] ?? ''}
                 placeholder="0"
-                inputMode="decimal"
-                onChange={(event) =>
-                  setValues((current) => ({ ...current, [field.key]: event.target.value }))
-                }
+                onValueChange={(raw) => setValues((current) => ({ ...current, [field.key]: raw }))}
               />
             </label>
           ))}

@@ -5,6 +5,7 @@ import type { BotSeriesId } from '@sme/shared';
 import { api } from '../api/client';
 import { useApi } from '../api/hooks';
 import { AsyncBoundary, Card, MetricCard, Section } from '../components/primitives';
+import { ThousandsInput } from '../components/ThousandsInput';
 import { SourceBadge } from '../components/SourceBadge';
 import { formatByUnit, formatDate, formatNumber } from '../components/format';
 import { LineChart } from '../charts/LineChart';
@@ -184,7 +185,7 @@ export function MarketDataPage() {
             <div className="row">
               <label className="field" style={{ flex: 1 }}>
                 <span className="field__label">จำนวน ({currency})</span>
-                <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" />
+                <ThousandsInput value={amount} onValueChange={setAmount} />
               </label>
               <button className="btn btn--primary" onClick={() => void convert()}>
                 แปลงเป็นบาท

@@ -6,6 +6,7 @@ import { api } from '../api/client';
 import { useApi } from '../api/hooks';
 import { useApp } from '../context';
 import { AsyncBoundary, Card, Section, Verdict } from '../components/primitives';
+import { ThousandsInput } from '../components/ThousandsInput';
 import { SourceBadge } from '../components/SourceBadge';
 import { ProviderLink } from '../components/ReferenceLinks';
 import { formatMoney, formatMoneyShort, formatPercent } from '../components/format';
@@ -67,7 +68,7 @@ export function FundingPage() {
           <div className="row">
             <label className="field" style={{ width: 220 }}>
               <span className="field__label">วงเงินที่ต้องการ (บาท)</span>
-              <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" />
+              <ThousandsInput value={amount} onValueChange={setAmount} />
             </label>
             <label className="field" style={{ width: 200 }}>
               <span className="field__label">ประเภท</span>

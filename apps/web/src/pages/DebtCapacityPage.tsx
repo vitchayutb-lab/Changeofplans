@@ -12,6 +12,8 @@ import { api } from '../api/client';
 import { useApi } from '../api/hooks';
 import { useApp } from '../context';
 import { AsyncBoundary, Card, Section, Verdict } from '../components/primitives';
+import { CountUp } from '../components/CountUp';
+import { ThousandsInput } from '../components/ThousandsInput';
 import { SourceBadge } from '../components/SourceBadge';
 import { formatMoney, formatPercent, formatTimes } from '../components/format';
 
@@ -150,12 +152,10 @@ export function DebtCapacityPage() {
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
           <label className="field">
             <span className="field__label">วงเงินที่อยากกู้เพิ่ม (บาท)</span>
-            <input
-              type="number"
-              min={0}
+            <ThousandsInput
               value={amount}
               placeholder="เว้นว่าง = วงเงินสูงสุดที่รับไหว"
-              onChange={(event) => setAmount(event.target.value)}
+              onValueChange={setAmount}
             />
             <span className="tiny muted">เว้นว่างไว้ ระบบจะใช้วงเงินสูงสุดที่รับไหวที่ DSCR 1.20</span>
           </label>
@@ -201,7 +201,14 @@ export function DebtCapacityPage() {
                 <div className="verdict">
                   <div className={`verdict__score verdict__score--${data.verdict === 'na' ? 'watch' : data.verdict}`}>
                     <span className="verdict__number">
-                      {data.ceilings.find((c) => c.targetDscr === 1.2)?.maxRatePct?.toFixed(2) ?? '—'}
+                      {(() => {
+                        const maxRatePct = data.ceilings.find((c) => c.targetDscr === 1.2)?.maxRatePct;
+                        return maxRatePct === undefined || maxRatePct === null ? (
+                          '—'
+                        ) : (
+                          <CountUp value={maxRatePct} format={(n) => n.toFixed(2)} />
+                        );
+                      })()}
                     </span>
                     <span className="verdict__of">%</span>
                   </div>
@@ -220,7 +227,9 @@ export function DebtCapacityPage() {
                   <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                     <div>
                       <div className="metric__label">กระแสเงินสดจากการดำเนินงาน</div>
-                      <div className="metric__value">{formatMoney(data.basis.operatingCashFlow)}</div>
+                      <div className="metric__value">
+                        <CountUp value={data.basis.operatingCashFlow} format={formatMoney} />
+                      </div>
                       <div className="tiny muted">ต่อปี</div>
                     </div>
                     <div>

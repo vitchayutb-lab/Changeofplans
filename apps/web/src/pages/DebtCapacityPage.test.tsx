@@ -147,15 +147,24 @@ describe('ตารางวงเงินที่รับไหว', () => {
 describe('ฐานที่ใช้คำนวณ', () => {
   beforeEach(() => vi.restoreAllMocks());
 
-  it('เปิดเผยตัวเลขตั้งต้นทุกตัว ไม่ใช่แค่ผลลัพธ์', async () => {
-    await renderPage();
-    const section = screen.getByRole('heading', { name: /ฐานที่ใช้คำนวณ/ }).closest('.section') as HTMLElement;
-    expect(within(section).getByText(/16,500,000/)).toBeTruthy();
-    expect(within(section).getByText(/11,558,364/)).toBeTruthy();
-    expect(within(section).getByText(/1\.43/)).toBeTruthy();
-    expect(within(section).getByText(/6\.79/)).toBeTruthy();
-    expect(within(section).getByText(/หลังกู้เพิ่มจะเป็น 6\.88/)).toBeTruthy();
-  });
+  it(
+    'เปิดเผยตัวเลขตั้งต้นทุกตัว ไม่ใช่แค่ผลลัพธ์',
+    async () => {
+      await renderPage();
+      const section = screen
+        .getByRole('heading', { name: /ฐานที่ใช้คำนวณ/ })
+        .closest('.section') as HTMLElement;
+      // ตัวเลขนี้มี count-up animation จึงต้องรอให้นับถึงค่าจริงก่อน
+      await waitFor(() => expect(within(section).getByText(/16,500,000/)).toBeTruthy(), {
+        timeout: 4000,
+      });
+      expect(within(section).getByText(/11,558,364/)).toBeTruthy();
+      expect(within(section).getByText(/1\.43/)).toBeTruthy();
+      expect(within(section).getByText(/6\.79/)).toBeTruthy();
+      expect(within(section).getByText(/หลังกู้เพิ่มจะเป็น 6\.88/)).toBeTruthy();
+    },
+    8000,
+  );
 });
 
 describe('กิจการที่ไม่เหลือช่องกู้เพิ่ม', () => {
